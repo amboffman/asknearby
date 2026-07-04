@@ -26,6 +26,25 @@ export type CostGuardResult =
     };
 
 /**
+ * The per-IP minute window alone — shared by the AI spine and the
+ * deterministic query endpoint (which must not draw down the AI daily
+ * budget since it never calls a model).
+ */
+export async function checkIpRateLimit(
+  db: Db,
+  ip: string,
+  perIpPerMinute: number = limitsFromEnv().perIpPerMinute,
+  now: Date = new Date(),
+): Promise<CostGuardResult> {
+  const minuteWindow = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+  const ipCount = await incrementUsageCounter(db, `ip:${ip}:${minuteWindow}`, 120);
+  if (ipCount > perIpPerMinute) {
+    return { allowed: false, reason: "ip_rate_limited", retryAfterSeconds: 60 };
+  }
+  return { allowed: true };
+}
+
+/**
  * Increment-then-check: the request being judged is already counted, so
  * a burst can never slip through between read and write.
  */
@@ -35,11 +54,8 @@ export async function checkCostGuard(
   limits: CostGuardLimits = limitsFromEnv(),
   now: Date = new Date(),
 ): Promise<CostGuardResult> {
-  const minuteWindow = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
-  const ipCount = await incrementUsageCounter(db, `ip:${ip}:${minuteWindow}`, 120);
-  if (ipCount > limits.perIpPerMinute) {
-    return { allowed: false, reason: "ip_rate_limited", retryAfterSeconds: 60 };
-  }
+  const ipResult = await checkIpRateLimit(db, ip, limits.perIpPerMinute, now);
+  if (!ipResult.allowed) return ipResult;
 
   const day = now.toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
   const dayCount = await incrementUsageCounter(db, `global:${day}`, 60 * 60 * 48);

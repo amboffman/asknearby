@@ -1,1 +1,54 @@
 @import "tailwindcss";
+
+/* Cedar & Main design tokens (ADR-004). The cedar scale grows out of the
+   pin colors the map adapters already used; ember is the single active/
+   attention accent shared by rows, chips, and pins. */
+@theme {
+  --color-cedar-50: #f2f7f5;
+  --color-cedar-100: #e2edea;
+  --color-cedar-200: #c4dcd5;
+  --color-cedar-300: #9bc3b8;
+  --color-cedar-400: #63a191;
+  --color-cedar-500: #3b8371;
+  --color-cedar-600: #23695c;
+  --color-cedar-700: #175a4e;
+  --color-cedar-800: #0e4f45;
+  --color-cedar-900: #0b4038;
+  --color-cedar-950: #062c26;
+
+  --color-ember-50: #fdf6e9;
+  --color-ember-100: #faeacd;
+  --color-ember-500: #d97706;
+  --color-ember-600: #b45309;
+  --color-ember-700: #92400e;
+  --color-ember-800: #78350f;
+
+  --color-paper: #faf9f6;
+  --color-ink: #1c1917;
+}
+
+/* Wire the next/font variables (set on <html> in layout.tsx) into the
+   Tailwind font namespace: font-sans is the app default, font-display is
+   the wordmark/headings slab, font-mono is the engineer surfaces. */
+@theme inline {
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bitter), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, Consolas, monospace;
+}
+
+/* Detail slide-over entrance; static under prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .slide-in {
+    animation: slide-in 0.18s ease-out both;
+  }
+  @keyframes slide-in {
+    from {
+      transform: translateX(32px);
+      opacity: 0.4;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}
