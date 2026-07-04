@@ -58,12 +58,17 @@ was made, checkbox updated here.
       join table; brand: Cedar & Main Outfitters)
 - [ ] Supabase project with PostGIS enabled; `DATABASE_URL` in `.env.local`
       (author does account setup), then migrate + seed against it
-- [ ] Drizzle schema + migrations (stores with a `geography` column,
-      attribute storage per ADR-001)
-- [ ] Deterministic seed (`pnpm seed`, seeded RNG): ~75 stores across 3–4
-      metro areas with plausible attribute distributions
-- [ ] Typed queries in `lib/db` incl. radius search (`ST_DWithin`), with
-      tests
+      (**blocked on author**, everything else is ready: create the project,
+      enable PostGIS, set `DATABASE_URL`, then `pnpm db:migrate && pnpm seed`)
+- [x] Drizzle schema + migrations (stores with a `geography` column,
+      attribute storage per ADR-001) (2026-07-04; migrations authored, first
+      run happens with the item above)
+- [x] Deterministic seed (`pnpm seed`, seeded RNG): ~75 stores across 3–4
+      metro areas with plausible attribute distributions (2026-07-04; 75
+      stores / 4 metros, generation unit-tested)
+- [x] Typed queries in `lib/db` incl. radius search (`ST_DWithin`), with
+      tests (2026-07-04; SQL-shape tests always run, live-PostGIS suite
+      auto-skips until `DATABASE_URL` exists)
 
 **Demo:** seeded DB; radius query test green.
 
