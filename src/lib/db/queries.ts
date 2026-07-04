@@ -3,7 +3,7 @@ import { and, asc, eq, exists, inArray, type SQL, sql } from "drizzle-orm";
 import { type Attribute, type StoreSearchResult } from "@/lib/types/store";
 
 import { type Db } from "./client";
-import { attributes, storeAttributes, stores } from "./schema";
+import { attributes, storeAttributes, storeHours, stores } from "./schema";
 
 export interface NearFilter {
   latitude: number;
@@ -16,6 +16,12 @@ export interface FindStoresFilters {
   near?: NearFilter;
   /** Stores must carry ALL of these attribute slugs. */
   requiredAttributeSlugs?: string[];
+  /**
+   * Only stores whose hours cover this instant, evaluated in each store's
+   * own timezone ("open now" = openAt: new Date(); parameterized so tests
+   * can pin the clock).
+   */
+  openAt?: Date;
   limit?: number;
 }
 
@@ -56,9 +62,29 @@ function geographyPoint(longitude: number, latitude: number): SQL {
  * the generated SQL without a live database.
  */
 export function buildFindStoresQuery(db: Db, filters: FindStoresFilters) {
-  const { near, requiredAttributeSlugs = [], limit = DEFAULT_LIMIT } = filters;
+  const { near, requiredAttributeSlugs = [], openAt, limit = DEFAULT_LIMIT } = filters;
 
   const conditions: SQL[] = [];
+  if (openAt) {
+    // The instant rendered as each store's local wall-clock time. A chain
+    // spanning time zones means "open now" differs per store (ADR-001).
+    const localTime = sql`(${openAt.toISOString()}::timestamptz AT TIME ZONE ${stores.timezone})`;
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(storeHours)
+          .where(
+            and(
+              eq(storeHours.storeId, stores.id),
+              sql`${storeHours.dayOfWeek} = EXTRACT(DOW FROM ${localTime})::smallint`,
+              sql`${localTime}::time >= ${storeHours.opensAt}`,
+              sql`${localTime}::time < ${storeHours.closesAt}`,
+            ),
+          ),
+      ),
+    );
+  }
   if (near) {
     // Geography + ST_DWithin = meters on the spheroid, GiST-indexed.
     conditions.push(
