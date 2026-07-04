@@ -1,6 +1,11 @@
 import { and, asc, eq, exists, inArray, type SQL, sql } from "drizzle-orm";
 
-import { type Attribute, type StoreDetails, type StoreSearchResult } from "@/lib/types/store";
+import {
+  type Attribute,
+  type StoreDetails,
+  type StoreHoursEntry,
+  type StoreSearchResult,
+} from "@/lib/types/store";
 
 import { type Db } from "./client";
 import { attributes, storeAttributes, storeHours, stores, usageCounters } from "./schema";
@@ -204,6 +209,41 @@ export async function getStoreDetails(db: Db, storeId: number): Promise<StoreDet
       closesAt: h.closesAt.slice(0, 5),
     })),
   };
+}
+
+/**
+ * Weekly hours for a set of stores in one query (the search API attaches
+ * them so list rows can show an open/closed status line).
+ */
+export async function listHoursForStores(
+  db: Db,
+  storeIds: readonly number[],
+): Promise<Map<number, StoreHoursEntry[]>> {
+  const byStore = new Map<number, StoreHoursEntry[]>();
+  if (storeIds.length === 0) return byStore;
+
+  const rows = await db
+    .select({
+      storeId: storeHours.storeId,
+      dayOfWeek: storeHours.dayOfWeek,
+      opensAt: storeHours.opensAt,
+      closesAt: storeHours.closesAt,
+    })
+    .from(storeHours)
+    .where(inArray(storeHours.storeId, [...storeIds]))
+    .orderBy(asc(storeHours.storeId), asc(storeHours.dayOfWeek));
+
+  for (const row of rows) {
+    const entries = byStore.get(row.storeId) ?? [];
+    entries.push({
+      dayOfWeek: row.dayOfWeek,
+      // pg `time` renders as HH:MM:SS; the domain contract is HH:MM.
+      opensAt: row.opensAt.slice(0, 5),
+      closesAt: row.closesAt.slice(0, 5),
+    });
+    byStore.set(row.storeId, entries);
+  }
+  return byStore;
 }
 
 /**

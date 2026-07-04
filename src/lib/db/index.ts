@@ -9,6 +9,7 @@ export {
   getStoreDetails,
   incrementUsageCounter,
   listAttributes,
+  listHoursForStores,
   type NearFilter,
   UnknownAttributeError,
 } from "./queries";

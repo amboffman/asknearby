@@ -27,6 +27,11 @@ export interface Store {
 export interface StoreSearchResult extends Store {
   /** Meters from the search center; null when the search had no center. */
   distanceMeters: number | null;
+  /**
+   * Weekly hours, attached by the search API for the list's open/closed
+   * status line (computed client-side in the store's own timezone).
+   */
+  hours?: StoreHoursEntry[];
 }
 
 export interface StoreHoursEntry {
