@@ -6,6 +6,9 @@ import { type FormEvent, useRef, useState } from "react";
 
 import { StoreMap, type StoreMapMarker } from "@/components/store-map";
 import { type SearchOutcome } from "@/lib/search";
+import { type StoreDetails } from "@/lib/types/store";
+
+import { StoreDetailPanel } from "./store-detail-panel";
 
 const EXAMPLE_SENTENCE = "a location with a men's department and free parking near Columbus";
 
@@ -16,7 +19,10 @@ export function SearchExperience() {
   const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<StoreDetails | null>(null);
   const rowRefs = useRef(new Map<number, HTMLLIElement>());
+  const detailCache = useRef(new Map<number, StoreDetails>());
+  const selectedIdRef = useRef<number | null>(null);
 
   async function runSearch(q: string) {
     setPending(true);
@@ -31,7 +37,7 @@ export function SearchExperience() {
       if (!response.ok) throw new Error(body.error ?? "Search failed.");
       setOutcome(body);
       setHighlightedId(null);
-      setSelectedId(null);
+      closeDetails();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed.");
     } finally {
@@ -44,10 +50,40 @@ export function SearchExperience() {
     if (sentence.trim() && !pending) void runSearch(sentence.trim());
   }
 
-  /** Shared by row clicks and pin clicks. */
+  /** Shared by row clicks and pin clicks: select + open the detail panel. */
   function selectStore(id: number) {
     setSelectedId(id);
+    selectedIdRef.current = id;
     rowRefs.current.get(id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    void loadDetails(id);
+  }
+
+  function closeDetails() {
+    setSelectedId(null);
+    selectedIdRef.current = null;
+    setDetail(null);
+  }
+
+  async function loadDetails(id: number) {
+    const cached = detailCache.current.get(id);
+    if (cached) {
+      setDetail(cached);
+      return;
+    }
+    setDetail(null);
+    try {
+      const response = await fetch(`/api/stores/${id}`);
+      if (!response.ok) throw new Error("Store lookup failed.");
+      const data = (await response.json()) as StoreDetails;
+      detailCache.current.set(id, data);
+      // Ignore stale responses if the user has moved on.
+      if (selectedIdRef.current === id) setDetail(data);
+    } catch {
+      if (selectedIdRef.current === id) {
+        closeDetails();
+        setError("Couldn't load store details — try again.");
+      }
+    }
   }
 
   const markers: StoreMapMarker[] =
@@ -95,7 +131,9 @@ export function SearchExperience() {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(340px,2fr)_3fr]">
         <section className="min-h-0 overflow-y-auto border-r border-neutral-200">
-          {outcome === null ? (
+          {selectedId !== null ? (
+            <StoreDetailPanel details={detail} onBack={closeDetails} />
+          ) : outcome === null ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
               <p className="text-neutral-500">
                 Try a sentence like{" "}

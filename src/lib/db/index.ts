@@ -5,6 +5,7 @@ export {
   buildFindStoresQuery,
   type FindStoresFilters,
   findStores,
+  getStoreDetails,
   listAttributes,
   type NearFilter,
   UnknownAttributeError,
