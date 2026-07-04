@@ -43,7 +43,7 @@ describe("translateQuery", () => {
     const model = mockModelReturning(
       toolCallContent({
         attributeSlugs: ["mens-department", "free-parking"],
-        geo: { kind: "place", placeName: "Columbus" },
+        placeName: "Columbus",
       }),
     );
 

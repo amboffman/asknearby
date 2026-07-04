@@ -5,9 +5,9 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateText, type LanguageModel, tool } from "ai";
 
 import {
-  buildSearchQuerySchema,
+  buildSearchQueryToolSchema,
   type SearchQuery,
-  searchQuerySchema,
+  toSearchQuery,
 } from "@/lib/types/search-query";
 import { type Attribute } from "@/lib/types/store";
 
@@ -62,7 +62,7 @@ export async function translateQuery(
   catalog: readonly Attribute[],
   options: TranslateOptions = {},
 ): Promise<SearchQuery> {
-  const querySchema = buildSearchQuerySchema(catalog.map((a) => a.slug));
+  const wireSchema = buildSearchQueryToolSchema(catalog.map((a) => a.slug));
   const result = await generateText({
     model: options.model ?? defaultModel(),
     system: systemPrompt(catalog),
@@ -71,7 +71,7 @@ export async function translateQuery(
       [SEARCH_TOOL_NAME]: tool({
         description:
           "Search the store database. Every field is optional — emit only what the user asked for.",
-        inputSchema: querySchema,
+        inputSchema: wireSchema,
       }),
     },
     toolChoice: { type: "tool", toolName: SEARCH_TOOL_NAME },
@@ -86,11 +86,11 @@ export async function translateQuery(
   // Re-validate ourselves — the AI SDK marks schema-invalid tool calls
   // instead of throwing, and the catalog enum must be enforced here, not
   // trusted (ADR-001: silent bad filters are the failure mode to prevent).
-  const parsed = querySchema.safeParse(call.input);
+  const parsed = wireSchema.safeParse(call.input);
   if (!parsed.success) {
     throw new TranslationFailedError(
       `Model emitted an invalid SearchQuery: ${parsed.error.message}`,
     );
   }
-  return searchQuerySchema.parse(parsed.data);
+  return toSearchQuery(parsed.data);
 }

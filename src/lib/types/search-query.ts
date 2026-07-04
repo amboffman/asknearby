@@ -62,13 +62,19 @@ export const searchQuerySchema = z.object({
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
 
 /**
- * Catalog-constrained variant for the AI tool call: `attributeSlugs`
- * becomes a closed enum of the live catalog, so the model cannot invent
- * attributes. The catalog table is the single source of truth (ADR-001).
+ * The model-facing tool schema. Two deliberate differences from
+ * {@link searchQuerySchema}:
+ * - `attributeSlugs` is a closed enum of the live catalog, so the model
+ *   cannot invent attributes (ADR-001).
+ * - geo intent is FLAT optional fields instead of a discriminated union —
+ *   small models reliably fill flat fields but mangle nested unions
+ *   (observed live: Haiku emitted `geo` as a bare string).
+ * {@link toSearchQuery} lifts the wire shape into the internal contract.
  */
-export function buildSearchQuerySchema(catalogSlugs: readonly string[]) {
+export function buildSearchQueryToolSchema(catalogSlugs: readonly string[]) {
   const [first, ...rest] = catalogSlugs;
-  if (!first) throw new Error("buildSearchQuerySchema requires a non-empty catalog");
+  if (!first) throw new Error("buildSearchQueryToolSchema requires a non-empty catalog");
+  const { geo: _geo, ...withoutGeo } = baseSearchQueryShape;
   return z.object({
     attributeSlugs: z
       .array(z.enum([first, ...rest]))
@@ -76,6 +82,42 @@ export function buildSearchQuerySchema(catalogSlugs: readonly string[]) {
       .describe(
         "Attributes the stores must ALL have. Only include attributes the user actually asked for.",
       ),
-    ...baseSearchQueryShape,
+    placeName: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Place the user wants to search near, verbatim-ish (e.g. "Columbus"). Omit if none; never invent one.',
+      ),
+    latitude: z
+      .number()
+      .min(-90)
+      .max(90)
+      .optional()
+      .describe("Only when the user gave explicit coordinates."),
+    longitude: z.number().min(-180).max(180).optional(),
+    ...withoutGeo,
+  });
+}
+
+export type SearchQueryWire = z.infer<ReturnType<typeof buildSearchQueryToolSchema>>;
+
+/** Lift the flat model-facing wire shape into the internal SearchQuery. */
+export function toSearchQuery(wire: SearchQueryWire): SearchQuery {
+  const geo: GeoIntent =
+    wire.latitude !== undefined && wire.longitude !== undefined
+      ? {
+          kind: "coordinates",
+          latitude: wire.latitude,
+          longitude: wire.longitude,
+        }
+      : wire.placeName
+        ? { kind: "place", placeName: wire.placeName }
+        : { kind: "none" };
+  return searchQuerySchema.parse({
+    attributeSlugs: wire.attributeSlugs,
+    geo,
+    radiusKm: wire.radiusKm,
+    openNow: wire.openNow,
   });
 }
