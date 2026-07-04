@@ -56,10 +56,10 @@ was made, checkbox updated here.
       veteran; pick the fictional brand name) (2026-07-04:
       [ADR-001](adr/001-query-translator-and-data-model.md) — catalog +
       join table; brand: Cedar & Main Outfitters)
-- [ ] Supabase project with PostGIS enabled; `DATABASE_URL` in `.env.local`
+- [x] Supabase project with PostGIS enabled; `DATABASE_URL` in `.env.local`
       (author does account setup), then migrate + seed against it
-      (**blocked on author**, everything else is ready: create the project,
-      enable PostGIS, set `DATABASE_URL`, then `pnpm db:migrate && pnpm seed`)
+      (2026-07-04: migrated, seeded 75 stores, all 19 tests green incl. the
+      live-PostGIS integration suite — **Week A complete**)
 - [x] Drizzle schema + migrations (stores with a `geography` column,
       attribute storage per ADR-001) (2026-07-04; migrations authored, first
       run happens with the item above)
