@@ -3,7 +3,7 @@ import { and, asc, eq, exists, inArray, type SQL, sql } from "drizzle-orm";
 import { type Attribute, type StoreDetails, type StoreSearchResult } from "@/lib/types/store";
 
 import { type Db } from "./client";
-import { attributes, storeAttributes, storeHours, stores } from "./schema";
+import { attributes, storeAttributes, storeHours, stores, usageCounters } from "./schema";
 
 export interface NearFilter {
   latitude: number;
@@ -204,6 +204,37 @@ export async function getStoreDetails(db: Db, storeId: number): Promise<StoreDet
       closesAt: h.closesAt.slice(0, 5),
     })),
   };
+}
+
+/**
+ * Atomically increment a windowed usage counter and return the new count
+ * (cost protection: per-IP rate limit + daily budget breaker). Expired
+ * rows are swept opportunistically on ~2% of calls.
+ */
+export async function incrementUsageCounter(
+  db: Db,
+  key: string,
+  ttlSeconds: number,
+): Promise<number> {
+  if (Math.random() < 0.02) {
+    void db
+      .delete(usageCounters)
+      .where(sql`${usageCounters.expiresAt} < now()`)
+      .catch(() => {});
+  }
+  const rows = await db
+    .insert(usageCounters)
+    .values({
+      key,
+      count: 1,
+      expiresAt: sql`now() + make_interval(secs => ${ttlSeconds})`,
+    })
+    .onConflictDoUpdate({
+      target: usageCounters.key,
+      set: { count: sql`${usageCounters.count} + 1` },
+    })
+    .returning({ count: usageCounters.count });
+  return rows[0]!.count;
 }
 
 /** The full attribute catalog — source of truth for AI enums and UI filters. */
