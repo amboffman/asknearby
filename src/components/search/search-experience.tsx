@@ -1,32 +1,77 @@
 "use client";
-// The Week C demo surface: sentence in, synced list + map out.
-// Sync contract: hovering a row highlights its pin; hovering a pin
-// highlights its row; clicking a pin selects and scrolls its row into view.
-import { type FormEvent, useRef, useState } from "react";
+// The demo surface (ADR-004): a white-label Cedar & Main store finder.
+// Sentence in → translated SearchQuery rendered as removable chips → synced
+// list + map. Chip edits re-run through /api/search/query — deterministic,
+// no second model call. Sync contract: hover/focus a row highlights its
+// pin; hover a pin highlights its row; click either selects and opens the
+// detail slide-over.
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { StoreMap, type StoreMapMarker } from "@/components/store-map";
 import { type SearchOutcome } from "@/lib/search";
 import { type Coordinates } from "@/lib/types/geo";
-import { type StoreDetails } from "@/lib/types/store";
+import { type SearchQuery } from "@/lib/types/search-query";
+import { type StoreDetails, type StoreSearchResult } from "@/lib/types/store";
 
+import { formatDistanceMiles, openStatus } from "./format";
 import { NoResults } from "./no-results";
+import { QueryChips } from "./query-chips";
 import { StoreDetailPanel } from "./store-detail-panel";
 
-const EXAMPLE_SENTENCE = "a location with a men's department and free parking near Columbus";
+/** One-click example sentences — every attribute is real catalog data. */
+const EXAMPLES = [
+  "a men's department and free parking near Columbus",
+  "which stores are open right now in Chicago?",
+  "curbside pickup and EV charging near Indianapolis",
+  "pet-friendly stores in Cincinnati",
+];
 
-export function SearchExperience() {
+/** Live stack identifiers for the footer strip (resolved server-side). */
+export interface StackInfo {
+  modelId: string;
+  mapsProvider: string;
+}
+
+export function SearchExperience({
+  initialStores,
+  stack,
+}: {
+  /** Browse mode: every store, rendered before the first search. */
+  initialStores: StoreSearchResult[];
+  stack: StackInfo;
+}) {
   const [sentence, setSentence] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
+  const [placeLabel, setPlaceLabel] = useState<string | null>(null);
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [showJson, setShowJson] = useState(false);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<StoreDetails | null>(null);
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locating, setLocating] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "map">("list");
+  const inputRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef(new Map<number, HTMLLIElement>());
   const detailCache = useRef(new Map<number, StoreDetails>());
   const selectedIdRef = useRef<number | null>(null);
+
+  // "/" focuses the search box; Escape closes the detail slide-over.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+      if (event.key === "/" && !typing) {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+      if (event.key === "Escape" && selectedIdRef.current !== null) closeDetails();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   /** "Near me": browser geolocation, with typed-place as the fallback. */
   function toggleMyLocation() {
@@ -56,25 +101,55 @@ export function SearchExperience() {
     );
   }
 
-  async function runSearch(q: string) {
+  async function postSearch(path: string, body: unknown) {
     setPending(true);
     setError(null);
+    const startedAt = performance.now();
     try {
-      const response = await fetch("/api/search", {
+      const response = await fetch(path, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ q, userLocation: userLocation ?? undefined }),
+        body: JSON.stringify(body),
       });
-      const body = (await response.json()) as SearchOutcome & { error?: string };
-      if (!response.ok) throw new Error(body.error ?? "Search failed.");
-      setOutcome(body);
+      const outcomeBody = (await response.json()) as SearchOutcome & { error?: string };
+      if (!response.ok) throw new Error(outcomeBody.error ?? "Search failed.");
+      setElapsedMs(Math.round(performance.now() - startedAt));
+      setOutcome(outcomeBody);
       setHighlightedId(null);
       closeDetails();
+      return outcomeBody;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed.");
+      return null;
     } finally {
       setPending(false);
     }
+  }
+
+  /** Sentence → model translation → results (the paid path). */
+  async function runSearch(q: string) {
+    const result = await postSearch("/api/search", {
+      q,
+      userLocation: userLocation ?? undefined,
+    });
+    if (!result) return;
+    setPlaceLabel(
+      result.query.geo.kind === "place"
+        ? result.query.geo.placeName
+        : result.query.geo.kind === "coordinates"
+          ? "you"
+          : null,
+    );
+  }
+
+  /** Edited query → results, deterministically — no model call (ADR-004). */
+  async function runQuery(query: SearchQuery) {
+    // Reuse the already-resolved center so the geocoder isn't re-paid.
+    const requery: SearchQuery =
+      query.geo.kind === "place" && outcome?.center
+        ? { ...query, geo: { kind: "coordinates", ...outcome.center } }
+        : query;
+    await postSearch("/api/search/query", { query: requery });
   }
 
   function onSubmit(event: FormEvent) {
@@ -82,10 +157,11 @@ export function SearchExperience() {
     if (sentence.trim() && !pending) void runSearch(sentence.trim());
   }
 
-  /** Shared by row clicks and pin clicks: select + open the detail panel. */
+  /** Shared by row clicks and pin clicks: select + open the slide-over. */
   function selectStore(id: number) {
     setSelectedId(id);
     selectedIdRef.current = id;
+    setMobileView("list"); // the slide-over lives in the list pane
     rowRefs.current.get(id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     void loadDetails(id);
   }
@@ -118,55 +194,125 @@ export function SearchExperience() {
     }
   }
 
-  const markers: StoreMapMarker[] =
-    outcome?.stores.map((store) => ({
-      id: store.id,
-      slug: store.slug,
-      name: store.name,
-      latitude: store.latitude,
-      longitude: store.longitude,
-    })) ?? [];
+  const stores = outcome?.stores ?? initialStores;
+  const browsing = outcome === null;
+  const markers: StoreMapMarker[] = stores.map((store, index) => ({
+    id: store.id,
+    slug: store.slug,
+    name: store.name,
+    latitude: store.latitude,
+    longitude: store.longitude,
+    // Numbered pins mirror the numbered rows; browse mode stays unnumbered.
+    ...(browsing ? {} : { ordinal: index + 1 }),
+  }));
 
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="border-b border-neutral-200 px-4 py-3">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">AskNearby</h1>
-            <p className="text-sm text-neutral-500">Just say what you&apos;re looking for.</p>
+    <div className="flex h-dvh flex-col bg-paper">
+      <header className="border-b border-cedar-950/50 bg-cedar-800 px-4 py-3 text-cedar-50 md:py-4">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <h1 className="flex items-baseline gap-2">
+              <span className="font-display text-xl font-bold tracking-tight text-white">
+                Cedar &amp; Main
+              </span>
+              <span className="text-[10px] font-semibold tracking-[0.28em] text-cedar-300">
+                OUTFITTERS
+              </span>
+            </h1>
+            <p className="hidden font-mono text-[11px] text-cedar-300 sm:block">
+              store finder · powered by{" "}
+              <span className="font-semibold text-cedar-100">AskNearby</span>
+            </p>
           </div>
-          <form onSubmit={onSubmit} className="flex gap-2">
+
+          <form
+            onSubmit={onSubmit}
+            className="flex items-center gap-2 rounded-full bg-white p-1.5 pl-4 shadow-lg shadow-cedar-950/30"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0 fill-ember-600"
+              // The AI affordance: this box takes sentences, not keywords.
+            >
+              <path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2z" />
+            </svg>
             <input
+              ref={inputRef}
               value={sentence}
               onChange={(e) => setSentence(e.target.value)}
-              placeholder={`e.g. "${EXAMPLE_SENTENCE}"`}
-              className="flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-teal-700"
+              placeholder="Describe what you need — “alterations, open now, near me”"
+              aria-label="Describe what you're looking for"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-neutral-400"
               maxLength={300}
             />
+            <kbd className="hidden rounded border border-neutral-200 px-1.5 font-mono text-[11px] text-neutral-400 md:block">
+              /
+            </kbd>
             <button
               type="button"
               onClick={toggleMyLocation}
               disabled={locating}
               title="Search near your location when no place is named"
-              className={`rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-40 ${
+              aria-pressed={userLocation !== null}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-600 ${
                 userLocation
-                  ? "border-teal-800 bg-teal-50 text-teal-900"
-                  : "border-neutral-300 text-neutral-600 hover:border-neutral-400"
+                  ? "border-cedar-300 bg-cedar-50 text-cedar-800"
+                  : "border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-700"
               }`}
             >
-              {locating ? "Locating…" : userLocation ? "✓ Near me" : "Near me"}
+              <svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5">
+                <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                <path
+                  d="M12 1v4M12 19v4M1 12h4M19 12h4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="hidden sm:inline">{locating ? "Locating…" : "Near me"}</span>
             </button>
             <button
               type="submit"
               disabled={pending || !sentence.trim()}
-              className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              className="flex shrink-0 items-center gap-2 rounded-full bg-cedar-800 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-cedar-700 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-600"
             >
-              {pending ? "Searching…" : "Search"}
+              {pending && (
+                <span
+                  aria-hidden
+                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                />
+              )}
+              Search
             </button>
           </form>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {outcome && (
+            <QueryChips
+              query={outcome.query}
+              placeLabel={placeLabel}
+              resultCount={outcome.stores.length}
+              elapsedMs={elapsedMs}
+              busy={pending}
+              showJson={showJson}
+              onRemoveAttribute={(slug) =>
+                runQuery({
+                  ...outcome.query,
+                  attributeSlugs: outcome.query.attributeSlugs.filter((s) => s !== slug),
+                })
+              }
+              onRemoveGeo={() =>
+                runQuery({ ...outcome.query, geo: { kind: "none" }, radiusKm: undefined })
+              }
+              onRemoveOpenNow={() => runQuery({ ...outcome.query, openNow: false })}
+              onToggleJson={() => setShowJson((v) => !v)}
+            />
+          )}
+
+          {error && <p className="text-sm text-red-300">{error}</p>}
           {outcome?.unresolvedPlaceName && (
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-amber-300">
               Couldn&apos;t place &quot;{outcome.unresolvedPlaceName}&quot; — showing matches
               everywhere.
             </p>
@@ -174,85 +320,242 @@ export function SearchExperience() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(340px,2fr)_3fr]">
-        <section className="min-h-0 overflow-y-auto border-r border-neutral-200">
-          {selectedId !== null ? (
-            <StoreDetailPanel details={detail} onBack={closeDetails} />
-          ) : outcome === null ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-              <p className="text-neutral-500">
-                Try a sentence like{" "}
-                <button
-                  type="button"
-                  className="text-teal-800 underline underline-offset-2"
-                  onClick={() => {
-                    setSentence(EXAMPLE_SENTENCE);
-                    void runSearch(EXAMPLE_SENTENCE);
+      {/* Mobile: one pane at a time. Desktop shows both, so this bar hides. */}
+      <div
+        role="tablist"
+        aria-label="Results view"
+        className="flex gap-1 border-b border-neutral-200 bg-white p-1 md:hidden"
+      >
+        {(["list", "map"] as const).map((view) => (
+          <button
+            key={view}
+            role="tab"
+            aria-selected={mobileView === view}
+            onClick={() => setMobileView(view)}
+            className={`flex-1 rounded-full py-1.5 text-sm font-semibold capitalize transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-600 ${
+              mobileView === view ? "bg-cedar-800 text-white" : "text-neutral-500"
+            }`}
+          >
+            {view}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(360px,2fr)_3fr]">
+        <section
+          aria-label="Store results"
+          className={`relative min-h-0 overflow-hidden border-r border-neutral-200 bg-white ${
+            mobileView === "map" ? "hidden md:block" : "block"
+          }`}
+        >
+          <div className="flex h-full flex-col">
+            {outcome && outcome.stores.length > 0 && (
+              <div className="flex items-baseline justify-between border-b border-neutral-100 px-4 py-2.5">
+                <p aria-live="polite" className="text-sm font-semibold">
+                  {outcome.stores.length} store{outcome.stores.length === 1 ? "" : "s"}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {outcome.stores[0]?.distanceMeters !== null ? "Nearest first" : "A to Z"}
+                </p>
+              </div>
+            )}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {pending ? (
+                <SkeletonRows />
+              ) : browsing ? (
+                <Welcome
+                  storeCount={initialStores.length}
+                  onExample={(example) => {
+                    setSentence(example);
+                    void runSearch(example);
                   }}
-                >
-                  &quot;{EXAMPLE_SENTENCE}&quot;
-                </button>
-              </p>
+                />
+              ) : outcome.stores.length === 0 ? (
+                <NoResults outcome={outcome} />
+              ) : (
+                <ul>
+                  {outcome.stores.map((store, index) => {
+                    const active = store.id === highlightedId || store.id === selectedId;
+                    return (
+                      <li
+                        key={store.id}
+                        ref={(el) => {
+                          if (el) rowRefs.current.set(store.id, el);
+                          else rowRefs.current.delete(store.id);
+                        }}
+                        className="border-b border-neutral-100"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => selectStore(store.id)}
+                          onMouseEnter={() => setHighlightedId(store.id)}
+                          onMouseLeave={() => setHighlightedId(null)}
+                          onFocus={() => setHighlightedId(store.id)}
+                          onBlur={() => setHighlightedId(null)}
+                          className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ember-600 ${
+                            active ? "bg-ember-50" : "hover:bg-neutral-50"
+                          }`}
+                        >
+                          <span
+                            aria-hidden
+                            className={`mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
+                              active ? "bg-ember-600" : "bg-cedar-800"
+                            }`}
+                          >
+                            {index + 1}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-semibold">{store.name}</span>
+                            <StatusLine store={store} />
+                            <span className="block text-sm text-neutral-500">
+                              {store.streetAddress}, {store.city}, {store.state} {store.postalCode}
+                            </span>
+                          </span>
+                          {store.distanceMeters !== null && (
+                            <span className="shrink-0 text-sm font-semibold text-neutral-600 tabular-nums">
+                              {formatDistanceMiles(store.distanceMeters)}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-          ) : outcome.stores.length === 0 ? (
-            <NoResults outcome={outcome} />
-          ) : (
-            <ul>
-              {outcome.stores.map((store) => {
-                const active = store.id === highlightedId || store.id === selectedId;
-                return (
-                  <li
-                    key={store.id}
-                    ref={(el) => {
-                      if (el) rowRefs.current.set(store.id, el);
-                      else rowRefs.current.delete(store.id);
-                    }}
-                    onMouseEnter={() => setHighlightedId(store.id)}
-                    onMouseLeave={() => setHighlightedId(null)}
-                    onClick={() => selectStore(store.id)}
-                    className={`cursor-pointer border-b border-neutral-100 px-4 py-3 transition-colors ${
-                      active ? "bg-amber-50" : "hover:bg-neutral-50"
-                    }`}
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium">{store.name}</span>
-                      {store.distanceMeters !== null && (
-                        <span className="shrink-0 text-sm text-neutral-500">
-                          {(store.distanceMeters / 1000).toFixed(1)} km
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-neutral-600">
-                      {store.streetAddress}, {store.city}, {store.state} {store.postalCode}
-                    </p>
-                    <p className="text-sm text-neutral-500">{store.phone}</p>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {outcome && (
-            <details className="border-t border-neutral-200 px-4 py-3 text-sm text-neutral-600">
-              <summary className="cursor-pointer select-none">
-                Parsed query ({outcome.stores.length} result
-                {outcome.stores.length === 1 ? "" : "s"})
-              </summary>
-              <pre className="mt-2 overflow-x-auto rounded bg-neutral-50 p-3 text-xs">
-                {JSON.stringify(outcome.query, null, 2)}
-              </pre>
-            </details>
+          </div>
+
+          {selectedId !== null && (
+            <div className="slide-in absolute inset-0 z-20 bg-white">
+              <StoreDetailPanel details={detail} onBack={closeDetails} />
+            </div>
           )}
         </section>
 
-        <StoreMap
-          className="min-h-[320px]"
-          markers={markers}
-          highlightedId={highlightedId}
-          selectedId={selectedId}
-          onMarkerClick={selectStore}
-          onMarkerHoverChange={setHighlightedId}
-        />
+        <div
+          className={`relative min-h-[320px] ${mobileView === "list" ? "hidden md:block" : "block"}`}
+        >
+          <StoreMap
+            className="h-full w-full"
+            markers={markers}
+            highlightedId={highlightedId}
+            selectedId={selectedId}
+            onMarkerClick={selectStore}
+            onMarkerHoverChange={setHighlightedId}
+          />
+          {showJson && outcome && (
+            <div className="absolute right-3 top-3 z-10 w-80 max-w-[calc(100%-1.5rem)] rounded-lg bg-cedar-950/95 p-3 text-cedar-100 shadow-xl">
+              <div className="flex items-center justify-between pb-1">
+                <span className="font-mono text-[11px] font-semibold">SearchQuery</span>
+                <button
+                  type="button"
+                  onClick={() => setShowJson(false)}
+                  aria-label="Hide query JSON"
+                  className="px-1 text-cedar-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-500"
+                >
+                  ✕
+                </button>
+              </div>
+              <pre className="max-h-64 overflow-auto font-mono text-[11px] leading-relaxed">
+                {JSON.stringify(outcome.query, null, 2)}
+              </pre>
+              <p className="border-t border-cedar-800 pt-2 font-mono text-[10px] text-cedar-400">
+                one forced tool call — the model translates, the database answers
+              </p>
+            </div>
+          )}
+        </div>
       </div>
+
+      <footer className="hidden items-center gap-5 border-t border-neutral-200 bg-white px-4 py-1.5 font-mono text-[11px] text-neutral-500 md:flex">
+        <span>
+          NL → <span className="font-semibold text-cedar-800">{stack.modelId}</span> → SearchQuery
+        </span>
+        <span>
+          geo: <span className="font-semibold text-cedar-800">PostGIS ST_DWithin</span>
+        </span>
+        <span>
+          map: <span className="font-semibold text-cedar-800">{stack.mapsProvider}</span>
+        </span>
+        <span className="ml-auto text-neutral-400">model &amp; map each swap with one env var</span>
+      </footer>
     </div>
+  );
+}
+
+/** "Open · closes 9 PM" / "Closed · opens 10 AM Thu", store-local. */
+function StatusLine({ store }: { store: StoreSearchResult }) {
+  if (!store.hours) return null;
+  const status = openStatus(store.hours, store.timezone);
+  return (
+    <span className="block text-xs">
+      <span
+        className={
+          status.isOpen ? "font-semibold text-green-700" : "font-semibold text-neutral-500"
+        }
+      >
+        {status.isOpen ? "Open" : "Closed"}
+      </span>
+      {status.detail && <span className="text-neutral-500"> · {status.detail}</span>}
+    </span>
+  );
+}
+
+function Welcome({
+  storeCount,
+  onExample,
+}: {
+  storeCount: number;
+  onExample: (example: string) => void;
+}) {
+  return (
+    <div className="flex h-full flex-col justify-center gap-4 p-8">
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-cedar-600">
+        AskNearby demo
+      </p>
+      <h2 className="font-display text-2xl font-bold text-cedar-950">
+        Find your nearest Cedar &amp; Main
+      </h2>
+      <p className="text-sm text-neutral-600">
+        Say it in one sentence — departments, services, parking, hours. The AI translates your words
+        into a typed query; the database does the finding.
+      </p>
+      <div className="flex flex-col items-start gap-2">
+        {EXAMPLES.map((example) => (
+          <button
+            key={example}
+            type="button"
+            onClick={() => onExample(example)}
+            className="rounded-full border border-cedar-200 bg-cedar-50 px-4 py-1.5 text-left text-sm text-cedar-800 transition-colors hover:border-cedar-400 hover:bg-cedar-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-600"
+          >
+            “{example}”
+          </button>
+        ))}
+      </div>
+      {storeCount > 0 && (
+        <p className="text-xs text-neutral-400">
+          …or just browse — all {storeCount} stores are on the map.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Result-shaped placeholders while the model call is in flight. */
+function SkeletonRows() {
+  return (
+    <ul aria-hidden className="motion-safe:animate-pulse">
+      {Array.from({ length: 6 }, (_, i) => (
+        <li key={i} className="flex items-start gap-3 border-b border-neutral-100 px-4 py-3">
+          <span className="mt-0.5 h-[22px] w-[22px] shrink-0 rounded-full bg-neutral-200" />
+          <span className="flex min-w-0 flex-1 flex-col gap-1.5 py-0.5">
+            <span className="h-3.5 w-2/3 rounded bg-neutral-200" />
+            <span className="h-3 w-1/3 rounded bg-neutral-100" />
+            <span className="h-3 w-4/5 rounded bg-neutral-100" />
+          </span>
+          <span className="h-3.5 w-10 rounded bg-neutral-200" />
+        </li>
+      ))}
+    </ul>
   );
 }
