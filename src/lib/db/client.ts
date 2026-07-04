@@ -5,7 +5,11 @@ import * as schema from "./schema";
 
 export type Db = ReturnType<typeof createDb>;
 
-function createDb(url: string) {
+/**
+ * postgres.js connects lazily (first query), so this is also safe for
+ * unit tests that only build SQL via `.toSQL()` and never execute.
+ */
+export function createDb(url: string) {
   // prepare:false keeps the client compatible with Supabase's transaction-
   // mode pooler (port 6543), which does not support prepared statements.
   const client = postgres(url, { prepare: false });

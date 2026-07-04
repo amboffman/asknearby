@@ -1,12 +1,13 @@
 import { sql } from "drizzle-orm";
 
+import { type Attribute } from "@/lib/types/store";
+
 import { type Db } from "./client";
 import { attributes, storeAttributes, storeHours, stores } from "./schema";
 import {
   ATTRIBUTE_CATALOG,
   ATTRIBUTE_PROBABILITY,
   BRAND,
-  type CatalogAttribute,
   HOURS_PATTERNS,
   METROS,
   PARKING_WEIGHTS,
@@ -36,7 +37,7 @@ export interface SeedStore {
 }
 
 export interface SeedData {
-  attributes: readonly CatalogAttribute[];
+  attributes: readonly Attribute[];
   stores: SeedStore[];
 }
 

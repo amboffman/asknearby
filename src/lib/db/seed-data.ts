@@ -2,22 +2,16 @@
 // Neighborhoods are real places with approximate coordinates so pins land
 // somewhere plausible; every store, address, and phone number is fictional.
 
+import { type Attribute } from "@/lib/types/store";
+
 export const BRAND = "Cedar & Main Outfitters";
 
 /** Fixed RNG seed — the whole dataset is a pure function of this value. */
 export const SEED = 20260704;
 
-export type AttributeCategory = "department" | "service" | "amenity" | "parking";
-
-export interface CatalogAttribute {
-  slug: string;
-  label: string;
-  category: AttributeCategory;
-}
-
 // The catalog is data, not schema (ADR-001): this list seeds the
 // `attributes` table, which then feeds the AI enum and the UI filters.
-export const ATTRIBUTE_CATALOG: readonly CatalogAttribute[] = [
+export const ATTRIBUTE_CATALOG: readonly Attribute[] = [
   { slug: "mens-department", label: "Men's department", category: "department" },
   { slug: "womens-department", label: "Women's department", category: "department" },
   { slug: "kids-department", label: "Kids' department", category: "department" },
