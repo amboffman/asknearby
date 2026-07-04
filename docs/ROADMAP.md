@@ -130,23 +130,31 @@ Columbus"` → query JSON + rows in the terminal.
 
 ### Week E (Aug 3–9) — Agnostic payoff 1: models
 
-- [ ] Second AI provider (Gemini via `@ai-sdk/google`) behind an
-      `AI_PROVIDER` config switch
-- [ ] Eval harness: ~20 golden NL → `SearchQuery` cases from the seed;
-      deterministic field-by-field scorers (never in CI)
-- [ ] Cross-provider report: accuracy / latency / cost per model
-      (`pnpm eval` → eval-reports/)
+- [x] Second AI provider (Gemini via `@ai-sdk/google`) behind an
+      `AI_PROVIDER` config switch (2026-07-04; default
+      `gemini-3-flash-preview`, the comparable cheap tier)
+- [x] Eval harness: ~20 golden NL → `SearchQuery` cases from the seed;
+      deterministic field-by-field scorers (never in CI) (2026-07-04;
+      20 cases, scorers unit-tested)
+- [x] Cross-provider report: accuracy / latency / cost per model
+      (`pnpm eval` → eval-reports/) (2026-07-04: Haiku 20/20, Gemini 13/13
+      on the cases its free tier allowed — 5 RPM / 20 RPD; re-run on a
+      billed key for full 20. Matrix embedded in README)
 
 **Demo:** the model-comparison matrix. (Gym kata 1L.3 rebuilds the scorers
 by hand.)
 
 ### Week F (Aug 10–16) — Agnostic payoff 2: maps + pitch
 
-- [ ] MapLibre-based second `<StoreMap/>` implementation (Radar or Mapbox
+- [x] MapLibre-based second `<StoreMap/>` implementation (Radar or Mapbox
       tiles — pick at slice start) behind a `MAPS_PROVIDER` switch
-- [ ] README → pitch document: architecture diagram, the swap story ("a
+      (2026-07-04; picked keyless OpenFreeMap tiles instead — zero-signup
+      flip; Radar/Mapbox = `NEXT_PUBLIC_MAPLIBRE_STYLE_URL` change)
+- [x] README → pitch document: architecture diagram, the swap story ("a
       client on vendor X costs one adapter"), eval matrix, demo script
-- [ ] Record a short demo GIF
+      (2026-07-04)
+- [ ] Record a short demo GIF (author: needs a screen recorder — script
+      and export specs are in README "Recording the demo")
 
 **Demo:** flip one env var → same app, different map, different model.
 
