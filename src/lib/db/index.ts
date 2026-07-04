@@ -3,6 +3,7 @@
 export { type Db, getDb } from "./client";
 export {
   buildFindStoresQuery,
+  countStoresPerAttribute,
   type FindStoresFilters,
   findStores,
   getStoreDetails,
