@@ -20,3 +20,4 @@ formalized at its slice.
 | 2026-07-04 | Cost-protection counters live in Postgres (already provisioned), not Redis/Upstash    | — (commit `feat(cost)`) |
 | 2026-07-04 | Second AI provider defaults to `gemini-3-flash-preview` (the comparable cheap tier)   | [ADR-002](./adr/002-vercel-ai-sdk.md) |
 | 2026-07-04 | MapLibre tiles: keyless OpenFreeMap default (Radar/Mapbox = a style-URL change), not the roadmap's keyed vendors | [ADR-003](./adr/003-map-contract-and-ports.md) |
+| 2026-07-04 | UI white-labeled as Cedar & Main; translated query surfaced as interactive chips backed by a deterministic `/api/search/query` (no model call) | [ADR-004](./adr/004-ui-as-pitch-surface.md) |

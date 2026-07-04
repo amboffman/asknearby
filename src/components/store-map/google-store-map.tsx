@@ -65,10 +65,21 @@ export function GoogleStoreMap({
 
   if (!apiKey) {
     return (
-      <div
-        className={`flex items-center justify-center bg-neutral-100 text-sm text-neutral-500 ${className ?? ""}`}
-      >
-        Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to display the map.
+      <div className={`flex items-center justify-center bg-cedar-50 p-6 ${className ?? ""}`}>
+        <div className="max-w-sm space-y-2 rounded-xl border border-cedar-200 bg-white p-5 text-center shadow-sm">
+          <p className="text-sm font-semibold text-cedar-950">Map key missing</p>
+          <p className="text-sm text-neutral-600">
+            Set{" "}
+            <code className="font-mono text-xs text-cedar-800">
+              NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+            </code>{" "}
+            to render Google Maps — or flip{" "}
+            <code className="font-mono text-xs text-cedar-800">
+              NEXT_PUBLIC_MAPS_PROVIDER=maplibre
+            </code>{" "}
+            for the keyless adapter.
+          </p>
+        </div>
       </div>
     );
   }
@@ -98,10 +109,13 @@ export function GoogleStoreMap({
                 onMouseLeave={() => onMarkerHoverChange(null)}
               >
                 <Pin
-                  background={active ? "#b45309" : "#115e59"}
-                  borderColor={active ? "#78350f" : "#134e4a"}
+                  background={active ? "#b45309" : "#0e4f45"}
+                  borderColor={active ? "#78350f" : "#062c26"}
                   glyphColor="#ffffff"
-                  scale={active ? 1.3 : 1}
+                  // Numbered pins mirror the list rows; browse-mode pins
+                  // (no ordinal) shrink into plain dots.
+                  glyph={marker.ordinal !== undefined ? String(marker.ordinal) : undefined}
+                  scale={marker.ordinal !== undefined ? (active ? 1.3 : 1) : active ? 1 : 0.7}
                 />
               </AdvancedMarker>
             );

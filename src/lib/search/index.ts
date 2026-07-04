@@ -1,7 +1,13 @@
 // lib/search — pure functions from SearchQuery to typed lib/db calls
 // (AGENTS.md boundary: no AI, no HTTP; fully unit-testable). The only
 // async dependency is the GeocodingPort, injected by the caller.
-import { countStoresPerAttribute, type Db, type FindStoresFilters, findStores } from "@/lib/db";
+import {
+  countStoresPerAttribute,
+  type Db,
+  type FindStoresFilters,
+  findStores,
+  listHoursForStores,
+} from "@/lib/db";
 import { type GeocodingPort } from "@/lib/providers/geocoding";
 import { RADIUS_KM, type SearchQuery } from "@/lib/types/search-query";
 import { type Coordinates } from "@/lib/types/geo";
@@ -70,6 +76,12 @@ export interface NoResultsDiagnosis {
 export interface SearchOutcome {
   query: SearchQuery;
   stores: StoreSearchResult[];
+  /**
+   * The resolved search center, when the query had one. Lets the UI's
+   * query-chip edits re-run deterministically (geo as coordinates) without
+   * paying for a second geocode (ADR-004).
+   */
+  center?: Coordinates;
   /**
    * Set when the user named a place the geocoder could not resolve; the
    * search then ran WITHOUT a location filter (Week D surfaces this).
@@ -144,9 +156,30 @@ export async function searchStores(
   const stores = await findStores(db, filters);
 
   const outcome: SearchOutcome = { query, stores };
+  if (center) outcome.center = center;
   if (unresolvedPlaceName) outcome.unresolvedPlaceName = unresolvedPlaceName;
   if (stores.length === 0) {
     outcome.noResults = await diagnoseNoResults(db, query, center, now);
   }
   return outcome;
+}
+
+/**
+ * Attach weekly hours to each result store (one extra query) so list rows
+ * can render an open/closed status line. Kept out of searchStores so the
+ * core spine stays hours-free; the API routes opt in.
+ */
+export async function attachStoreHours(db: Db, outcome: SearchOutcome): Promise<SearchOutcome> {
+  if (outcome.stores.length === 0) return outcome;
+  const hoursByStore = await listHoursForStores(
+    db,
+    outcome.stores.map((store) => store.id),
+  );
+  return {
+    ...outcome,
+    stores: outcome.stores.map((store) => ({
+      ...store,
+      hours: hoursByStore.get(store.id) ?? [],
+    })),
+  };
 }

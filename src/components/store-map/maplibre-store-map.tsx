@@ -45,22 +45,36 @@ function FitToMarkers({ markers }: { markers: StoreMapMarker[] }) {
   return null;
 }
 
-/** Teardrop pin visually matching the Google Pin colors. */
-function PinGlyph({ active }: { active: boolean }) {
+/**
+ * Teardrop pin visually matching the Google Pin colors. With an ordinal it
+ * shows the list-row number; without one (browse mode) it's a smaller dot.
+ */
+function PinGlyph({ active, ordinal }: { active: boolean; ordinal?: number }) {
+  const width = ordinal !== undefined ? (active ? 33 : 26) : active ? 26 : 20;
+  const height = Math.round(width * (32 / 24));
   return (
-    <svg
-      width={active ? 33 : 26}
-      height={active ? 43 : 34}
-      viewBox="0 0 24 32"
-      style={{ display: "block" }}
-    >
+    <svg width={width} height={height} viewBox="0 0 24 32" style={{ display: "block" }}>
       <path
         d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z"
-        fill={active ? "#b45309" : "#115e59"}
-        stroke={active ? "#78350f" : "#134e4a"}
+        fill={active ? "#b45309" : "#0e4f45"}
+        stroke={active ? "#78350f" : "#062c26"}
         strokeWidth="1"
       />
-      <circle cx="12" cy="12" r="4.5" fill="#ffffff" />
+      {ordinal !== undefined ? (
+        <text
+          x="12"
+          y="16"
+          textAnchor="middle"
+          fontFamily="system-ui, sans-serif"
+          fontSize="11"
+          fontWeight="700"
+          fill="#ffffff"
+        >
+          {ordinal}
+        </text>
+      ) : (
+        <circle cx="12" cy="12" r="4.5" fill="#ffffff" />
+      )}
     </svg>
   );
 }
@@ -105,7 +119,7 @@ export function MapLibreStoreMap({
               onMouseEnter={() => onMarkerHoverChange(marker.id)}
               onMouseLeave={() => onMarkerHoverChange(null)}
             >
-              <PinGlyph active={activeIds.has(marker.id)} />
+              <PinGlyph active={activeIds.has(marker.id)} ordinal={marker.ordinal} />
             </div>
           </Marker>
         ))}

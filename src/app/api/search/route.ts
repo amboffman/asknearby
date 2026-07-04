@@ -9,7 +9,7 @@ import { TranslationFailedError, translateQuery } from "@/lib/ai/translate";
 import { checkCostGuard } from "@/lib/config/cost-guard";
 import { createAppGeocoder } from "@/lib/config/geocoder";
 import { getDb, listAttributes } from "@/lib/db";
-import { applyUserLocation, searchStores } from "@/lib/search";
+import { applyUserLocation, attachStoreHours, searchStores } from "@/lib/search";
 
 const bodySchema = z.object({
   q: z.string().trim().min(1).max(300),
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const outcome = await searchStores(db, query, {
       geocoder: createAppGeocoder(),
     });
-    return Response.json(outcome);
+    return Response.json(await attachStoreHours(db, outcome));
   } catch (error) {
     if (error instanceof TranslationFailedError) {
       return Response.json(

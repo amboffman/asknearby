@@ -153,6 +153,11 @@ by hand.)
 - [x] README → pitch document: architecture diagram, the swap story ("a
       client on vendor X costs one adapter"), eval matrix, demo script
       (2026-07-04)
+- [x] UI/UX pitch pass (author-requested 2026-07-04, outside the original
+      slice plan): white-label Cedar & Main design system, interactive
+      query chips + deterministic `/api/search/query`, browse mode,
+      numbered pins, open-now status, mobile tabs
+      ([ADR-004](adr/004-ui-as-pitch-surface.md))
 - [ ] Record a short demo GIF (author: needs a screen recorder — script
       and export specs are in README "Recording the demo")
 

@@ -8,6 +8,12 @@ export interface StoreMapMarker {
   name: string;
   latitude: number;
   longitude: number;
+  /**
+   * 1-based position in the result list; renders as a numbered pin that
+   * mirrors the list row. Omitted in browse mode (unfiltered all-stores
+   * view), which renders a smaller unnumbered pin.
+   */
+  ordinal?: number;
 }
 
 export interface StoreMapProps {
