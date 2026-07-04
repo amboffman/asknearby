@@ -15,12 +15,15 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx scripts/seed.ts",
+    "ask": "tsx scripts/ask.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
     "check:fix": "pnpm format && pnpm lint:fix && pnpm typecheck"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.8",
+    "ai": "^7.0.15",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.4",

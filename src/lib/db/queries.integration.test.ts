@@ -72,6 +72,49 @@ describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {
     }
   });
 
+  it("openAt: a Wednesday-noon instant finds every store open", async () => {
+    // 2026-07-08 is a Wednesday; 17:00 UTC = 13:00 ET / 12:00 CT, inside
+    // every weekday hours pattern in the seed.
+    const results = await findStores(db, {
+      openAt: new Date("2026-07-08T17:00:00Z"),
+      limit: 100,
+    });
+    expect(results).toHaveLength(seedData.stores.length);
+  });
+
+  it("openAt: a middle-of-the-night instant finds none", async () => {
+    // 08:00 UTC = 04:00 ET / 03:00 CT.
+    const results = await findStores(db, {
+      openAt: new Date("2026-07-08T08:00:00Z"),
+      limit: 100,
+    });
+    expect(results).toHaveLength(0);
+  });
+
+  it("openAt: Sunday matches exactly the seed's Sunday-open stores, per timezone", async () => {
+    // 2026-07-12 is a Sunday; 17:00 UTC = 13:00 ET / 12:00 CT (July DST).
+    const openAt = new Date("2026-07-12T17:00:00Z");
+    const utcOffsetHours: Record<string, number> = {
+      "America/New_York": -4,
+      "America/Indiana/Indianapolis": -4,
+      "America/Chicago": -5,
+    };
+    const expected = seedData.stores
+      .filter((store) => {
+        const localHour = 17 + (utcOffsetHours[store.timezone] ?? 0);
+        const hhmm = `${String(localHour).padStart(2, "0")}:00`;
+        return store.hours.some((h) => h.dayOfWeek === 0 && h.opensAt <= hhmm && hhmm < h.closesAt);
+      })
+      .map((store) => store.slug)
+      .sort();
+
+    const results = await findStores(db, { openAt, limit: 100 });
+
+    expect(results.map((r) => r.slug).sort()).toEqual(expected);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.length).toBeLessThan(seedData.stores.length);
+  });
+
   it("rejects attribute slugs that are not in the catalog", async () => {
     const promise = findStores(db, {
       requiredAttributeSlugs: ["mens-department", "heliport"],
