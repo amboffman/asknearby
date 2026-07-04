@@ -16,6 +16,7 @@
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx scripts/seed.ts",
     "ask": "tsx scripts/ask.ts",
+    "eval": "tsx scripts/eval.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
