@@ -18,3 +18,5 @@ formalized at its slice.
 | 2026-07-04 | Map selection/hover state owned by the page; `StoreMap` is a controlled component     | [ADR-003](./adr/003-map-contract-and-ports.md) |
 | 2026-07-04 | Speed mode: Claude implements all slices; learning via ai-stack-gym katas 1L.1–1L.4  | —                |
 | 2026-07-04 | Cost-protection counters live in Postgres (already provisioned), not Redis/Upstash    | — (commit `feat(cost)`) |
+| 2026-07-04 | Second AI provider defaults to `gemini-3-flash-preview` (the comparable cheap tier)   | [ADR-002](./adr/002-vercel-ai-sdk.md) |
+| 2026-07-04 | MapLibre tiles: keyless OpenFreeMap default (Radar/Mapbox = a style-URL change), not the roadmap's keyed vendors | [ADR-003](./adr/003-map-contract-and-ports.md) |
