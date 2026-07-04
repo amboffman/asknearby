@@ -13,5 +13,7 @@ formalized at its slice.
 | 2026-07-04 | Vercel AI SDK for provider-agnostic AI (deliberate inverse of MLIP's ADR-002)        | [ADR-002](./adr/002-vercel-ai-sdk.md) |
 | 2026-07-04 | Model-facing tool schema is flat; internal `SearchQuery` stays a discriminated union | [ADR-002](./adr/002-vercel-ai-sdk.md) |
 | 2026-07-04 | Translator model defaults to `claude-haiku-4-5`, overridable via `AI_MODEL`          | [ADR-002](./adr/002-vercel-ai-sdk.md) |
-| 2026-07-04 | Maps behind ports & adapters; Google first, MapLibre-based second                    | ADR-003 (Week C) |
+| 2026-07-04 | Maps behind ports & adapters; Google first, MapLibre-based second                    | [ADR-003](./adr/003-map-contract-and-ports.md) |
+| 2026-07-04 | Geocoding via Google **v4** API (v3 legacy); env-driven fallback to offline gazetteer | [ADR-003](./adr/003-map-contract-and-ports.md) |
+| 2026-07-04 | Map selection/hover state owned by the page; `StoreMap` is a controlled component     | [ADR-003](./adr/003-map-contract-and-ports.md) |
 | 2026-07-04 | Speed mode: Claude implements all slices; learning via ai-stack-gym katas 1L.1–1L.4  | —                |
