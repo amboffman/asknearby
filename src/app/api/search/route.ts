@@ -8,10 +8,17 @@ import { z } from "zod";
 import { TranslationFailedError, translateQuery } from "@/lib/ai/translate";
 import { createAppGeocoder } from "@/lib/config/geocoder";
 import { getDb, listAttributes } from "@/lib/db";
-import { searchStores } from "@/lib/search";
+import { applyUserLocation, searchStores } from "@/lib/search";
 
 const bodySchema = z.object({
   q: z.string().trim().min(1).max(300),
+  /** Browser geolocation ("near me"); used only when the sentence names no place. */
+  userLocation: z
+    .object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+    })
+    .optional(),
 });
 
 export async function POST(request: Request) {
@@ -26,7 +33,8 @@ export async function POST(request: Request) {
   try {
     const db = getDb();
     const catalog = await listAttributes(db);
-    const query = await translateQuery(parsedBody.data.q, catalog);
+    const translated = await translateQuery(parsedBody.data.q, catalog);
+    const query = applyUserLocation(translated, parsedBody.data.userLocation);
     const outcome = await searchStores(db, query, {
       geocoder: createAppGeocoder(),
     });

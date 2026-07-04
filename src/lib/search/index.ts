@@ -36,6 +36,22 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * "Near me" (Week D): when the sentence carried no location intent and the
+ * browser shared the user's coordinates, search around the user. An
+ * explicit place or coordinates in the sentence always wins.
+ */
+export function applyUserLocation(
+  query: SearchQuery,
+  userLocation: Coordinates | null | undefined,
+): SearchQuery {
+  if (!userLocation || query.geo.kind !== "none") return query;
+  return {
+    ...query,
+    geo: { kind: "coordinates", ...userLocation },
+  };
+}
+
 export interface SearchDeps {
   geocoder: GeocodingPort;
   /** Injected clock for deterministic tests; defaults to Date.now. */
