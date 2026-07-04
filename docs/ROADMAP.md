@@ -111,12 +111,18 @@ Columbus"` → query JSON + rows in the terminal.
 
 ### Week D (Jul 27–Aug 2) — Spine polish + deploy ⚑ go/no-go
 
-- [ ] Store detail panel (attributes, hours, directions link)
-- [ ] "Near me": browser geolocation with typed-place fallback
-- [ ] No-results handling (show which filters matched nothing)
+- [x] Store detail panel (attributes, hours, directions link) (2026-07-04)
+- [x] "Near me": browser geolocation with typed-place fallback (2026-07-04;
+      explicit places always win over the user's coordinates)
+- [x] No-results handling (show which filters matched nothing) (2026-07-04;
+      per-filter chain-wide counts + nearest-match distance)
 - [ ] Deploy to Vercel: MLIP cost-protection pattern (per-IP rate limit +
       daily budget breaker), referrer-restricted browser maps key, quota
       caps on every Google API
+      (cost protection landed 2026-07-04 — Postgres `usage_counters`,
+      guard before every model call; **remaining: author creates the
+      Vercel project** — push to GitHub, import repo, set env vars, then
+      referrer-restrict the browser key to the deploy URL)
 - [ ] **Checkpoint (Aug 2):** if not deployed, cut Weeks E–F extras per the
       trim ladder and finish the spine.
 

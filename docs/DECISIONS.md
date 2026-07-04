@@ -17,3 +17,4 @@ formalized at its slice.
 | 2026-07-04 | Geocoding via Google **v4** API (v3 legacy); env-driven fallback to offline gazetteer | [ADR-003](./adr/003-map-contract-and-ports.md) |
 | 2026-07-04 | Map selection/hover state owned by the page; `StoreMap` is a controlled component     | [ADR-003](./adr/003-map-contract-and-ports.md) |
 | 2026-07-04 | Speed mode: Claude implements all slices; learning via ai-stack-gym katas 1L.1–1L.4  | —                |
+| 2026-07-04 | Cost-protection counters live in Postgres (already provisioned), not Redis/Upstash    | — (commit `feat(cost)`) |
