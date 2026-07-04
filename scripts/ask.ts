@@ -5,23 +5,9 @@ import { config } from "dotenv";
 config({ path: ".env.local", quiet: true });
 
 import { translateQuery } from "../src/lib/ai/translate";
+import { createAppGeocoder } from "../src/lib/config/geocoder";
 import { getDb, listAttributes } from "../src/lib/db";
-import { METROS } from "../src/lib/db/seed-data";
-import { createGazetteerGeocoder, type GazetteerPlace } from "../src/lib/providers/geocoding";
 import { searchStores } from "../src/lib/search";
-
-/** Metro centroids from the seed data — Week C replaces this with Google. */
-function metroPlaces(): GazetteerPlace[] {
-  return METROS.map((metro) => ({
-    name: metro.name,
-    latitude: avg(metro.neighborhoods.map((n) => n.latitude)),
-    longitude: avg(metro.neighborhoods.map((n) => n.longitude)),
-  }));
-}
-
-function avg(values: number[]): number {
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
-}
 
 async function main() {
   const sentence = process.argv.slice(2).join(" ").trim();
@@ -45,7 +31,7 @@ async function main() {
   console.log(JSON.stringify(query, null, 2));
 
   const outcome = await searchStores(db, query, {
-    geocoder: createGazetteerGeocoder(metroPlaces()),
+    geocoder: createAppGeocoder(),
   });
 
   if (outcome.unresolvedPlaceName) {
