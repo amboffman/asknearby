@@ -51,17 +51,24 @@ was made, checkbox updated here.
 
 - [x] Repo scaffold: toolchain mirrored from MLIP, founding docs, app
       skeleton (scaffolded 2026-07-04)
-- [ ] ADR-001: query-translator architecture + data model (attribute
+- [x] ADR-001: query-translator architecture + data model (attribute
       storage: columns vs jsonb vs join table — argue it like a locator
-      veteran; pick the fictional brand name)
-- [ ] Supabase project with PostGIS enabled; `DATABASE_URL` in `.env.local`
+      veteran; pick the fictional brand name) (2026-07-04:
+      [ADR-001](adr/001-query-translator-and-data-model.md) — catalog +
+      join table; brand: Cedar & Main Outfitters)
+- [x] Supabase project with PostGIS enabled; `DATABASE_URL` in `.env.local`
       (author does account setup), then migrate + seed against it
-- [ ] Drizzle schema + migrations (stores with a `geography` column,
-      attribute storage per ADR-001)
-- [ ] Deterministic seed (`pnpm seed`, seeded RNG): ~75 stores across 3–4
-      metro areas with plausible attribute distributions
-- [ ] Typed queries in `lib/db` incl. radius search (`ST_DWithin`), with
-      tests
+      (2026-07-04: migrated, seeded 75 stores, all 19 tests green incl. the
+      live-PostGIS integration suite — **Week A complete**)
+- [x] Drizzle schema + migrations (stores with a `geography` column,
+      attribute storage per ADR-001) (2026-07-04; migrations authored, first
+      run happens with the item above)
+- [x] Deterministic seed (`pnpm seed`, seeded RNG): ~75 stores across 3–4
+      metro areas with plausible attribute distributions (2026-07-04; 75
+      stores / 4 metros, generation unit-tested)
+- [x] Typed queries in `lib/db` incl. radius search (`ST_DWithin`), with
+      tests (2026-07-04; SQL-shape tests always run, live-PostGIS suite
+      auto-skips until `DATABASE_URL` exists)
 
 **Demo:** seeded DB; radius query test green.
 
