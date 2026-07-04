@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 config({ path: ".env.local", quiet: true });
 
 import { type Db, getDb } from "./client";
-import { findStores, listAttributes, UnknownAttributeError } from "./queries";
+import { findStores, getStoreDetails, listAttributes, UnknownAttributeError } from "./queries";
 import { applySeed, generateSeedData } from "./seed";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -122,6 +122,31 @@ describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {
 
     await expect(promise).rejects.toThrow(UnknownAttributeError);
     await expect(promise).rejects.toMatchObject({ unknownSlugs: ["heliport"] });
+  });
+
+  it("getStoreDetails returns the seed's attributes and hours for a store", async () => {
+    const [downtown] = await findStores(db, {
+      near: { ...columbus, radiusMeters: 3_000 },
+      limit: 1,
+    });
+    expect(downtown).toBeDefined();
+
+    const details = await getStoreDetails(db, downtown!.id);
+    expect(details).not.toBeNull();
+
+    const seeded = seedData.stores.find((s) => s.slug === details!.slug)!;
+    expect(details!.attributes.map((a) => a.slug).sort()).toEqual(
+      [...seeded.attributeSlugs].sort(),
+    );
+    expect(details!.hours.map((h) => `${h.dayOfWeek} ${h.opensAt}-${h.closesAt}`)).toEqual(
+      [...seeded.hours]
+        .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+        .map((h) => `${h.dayOfWeek} ${h.opensAt}-${h.closesAt}`),
+    );
+  });
+
+  it("getStoreDetails returns null for an unknown id", async () => {
+    await expect(getStoreDetails(db, 999_999)).resolves.toBeNull();
   });
 
   it("lists the seeded attribute catalog", async () => {

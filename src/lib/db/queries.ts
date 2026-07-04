@@ -1,6 +1,6 @@
 import { and, asc, eq, exists, inArray, type SQL, sql } from "drizzle-orm";
 
-import { type Attribute, type StoreSearchResult } from "@/lib/types/store";
+import { type Attribute, type StoreDetails, type StoreSearchResult } from "@/lib/types/store";
 
 import { type Db } from "./client";
 import { attributes, storeAttributes, storeHours, stores } from "./schema";
@@ -140,6 +140,45 @@ export async function findStores(
     ...row,
     distanceMeters: row.distanceMeters === null ? null : Number(row.distanceMeters),
   }));
+}
+
+/** One store with its attributes and weekly hours (Week D detail panel). */
+export async function getStoreDetails(db: Db, storeId: number): Promise<StoreDetails | null> {
+  const [store] = await db.select(storeSelection).from(stores).where(eq(stores.id, storeId));
+  if (!store) return null;
+
+  const [storeAttrs, hours] = await Promise.all([
+    db
+      .select({
+        slug: attributes.slug,
+        label: attributes.label,
+        category: attributes.category,
+      })
+      .from(storeAttributes)
+      .innerJoin(attributes, eq(storeAttributes.attributeId, attributes.id))
+      .where(eq(storeAttributes.storeId, storeId))
+      .orderBy(asc(attributes.category), asc(attributes.label)),
+    db
+      .select({
+        dayOfWeek: storeHours.dayOfWeek,
+        opensAt: storeHours.opensAt,
+        closesAt: storeHours.closesAt,
+      })
+      .from(storeHours)
+      .where(eq(storeHours.storeId, storeId))
+      .orderBy(asc(storeHours.dayOfWeek)),
+  ]);
+
+  return {
+    ...store,
+    attributes: storeAttrs,
+    hours: hours.map((h) => ({
+      ...h,
+      // pg `time` renders as HH:MM:SS; the domain contract is HH:MM.
+      opensAt: h.opensAt.slice(0, 5),
+      closesAt: h.closesAt.slice(0, 5),
+    })),
+  };
 }
 
 /** The full attribute catalog — source of truth for AI enums and UI filters. */

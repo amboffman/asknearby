@@ -28,3 +28,16 @@ export interface StoreSearchResult extends Store {
   /** Meters from the search center; null when the search had no center. */
   distanceMeters: number | null;
 }
+
+export interface StoreHoursEntry {
+  /** 0 = Sunday … 6 = Saturday; a closed day has no entry. */
+  dayOfWeek: number;
+  /** "HH:MM" 24-hour local time. */
+  opensAt: string;
+  closesAt: string;
+}
+
+export interface StoreDetails extends Store {
+  attributes: Attribute[];
+  hours: StoreHoursEntry[];
+}
