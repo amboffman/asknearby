@@ -93,14 +93,19 @@ Columbus"` → query JSON + rows in the terminal.
 
 ### Week C (Jul 20–26) — Map + list UI
 
-- [ ] `GeocodingPort` + Google adapter in `lib/providers` ("near Columbus"
-      → coordinates), fixture-tested
-- [ ] `<StoreMap/>` props contract + Google Maps JS implementation (read
+- [x] `GeocodingPort` + Google adapter in `lib/providers` ("near Columbus"
+      → coordinates), fixture-tested (2026-07-04; Geocoding API **v4**;
+      live call awaits enabling the API in the Cloud Console)
+- [x] `<StoreMap/>` props contract + Google Maps JS implementation (read
       current Google docs at slice start — do not code the SDK from memory)
-- [ ] Results list synced with the map (hover row ↔ highlight pin, click
-      pin ↔ scroll list)
-- [ ] Search box wired end to end: sentence → translate → query → map + list
-- [ ] ADR-003: the map component contract + ports/adapters layout
+      (2026-07-04; `@vis.gl/react-google-maps`, AdvancedMarker + mapId)
+- [x] Results list synced with the map (hover row ↔ highlight pin, click
+      pin ↔ scroll list) (2026-07-04)
+- [x] Search box wired end to end: sentence → translate → query → map + list
+      (2026-07-04; verified against the live dev server — flagship sentence
+      → 12 rows; browser pin check awaits Maps JS API enablement)
+- [x] ADR-003: the map component contract + ports/adapters layout
+      (2026-07-04: [ADR-003](adr/003-map-contract-and-ports.md))
 
 **Demo:** type the sentence in a browser, watch pins appear.
 
