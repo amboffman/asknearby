@@ -44,6 +44,15 @@ describe("buildFindStoresQuery", () => {
     expect(sql).toMatch(/order by "stores"\."name"/i);
   });
 
+  it("sorts by distance without filtering when near has no radius", () => {
+    const { sql } = buildFindStoresQuery(db, {
+      near: { latitude: columbus.latitude, longitude: columbus.longitude },
+    }).toSQL();
+
+    expect(sql).not.toContain("ST_DWithin");
+    expect(sql).toMatch(/order by ST_Distance/i);
+  });
+
   it("filters open stores in each store's own timezone", () => {
     const openAt = new Date("2026-07-08T17:00:00Z");
     const { sql, params } = buildFindStoresQuery(db, { openAt }).toSQL();

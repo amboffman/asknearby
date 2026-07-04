@@ -1,14 +1,18 @@
 import { and, asc, eq, exists, inArray, type SQL, sql } from "drizzle-orm";
 
-import { type Attribute, type StoreSearchResult } from "@/lib/types/store";
+import { type Attribute, type StoreDetails, type StoreSearchResult } from "@/lib/types/store";
 
 import { type Db } from "./client";
-import { attributes, storeAttributes, storeHours, stores } from "./schema";
+import { attributes, storeAttributes, storeHours, stores, usageCounters } from "./schema";
 
 export interface NearFilter {
   latitude: number;
   longitude: number;
-  radiusMeters: number;
+  /**
+   * Omit to sort by distance WITHOUT filtering — used by no-results
+   * diagnosis to find the nearest match outside the requested radius.
+   */
+  radiusMeters?: number;
 }
 
 export interface FindStoresFilters {
@@ -85,7 +89,7 @@ export function buildFindStoresQuery(db: Db, filters: FindStoresFilters) {
       ),
     );
   }
-  if (near) {
+  if (near?.radiusMeters !== undefined) {
     // Geography + ST_DWithin = meters on the spheroid, GiST-indexed.
     conditions.push(
       sql`ST_DWithin(${stores.location}, ${geographyPoint(near.longitude, near.latitude)}, ${near.radiusMeters})`,
@@ -140,6 +144,97 @@ export async function findStores(
     ...row,
     distanceMeters: row.distanceMeters === null ? null : Number(row.distanceMeters),
   }));
+}
+
+/**
+ * Chain-wide store counts per attribute slug (no-results diagnosis:
+ * "which filters matched nothing"). Slugs are assumed catalog-valid.
+ */
+export async function countStoresPerAttribute(
+  db: Db,
+  slugs: readonly string[],
+): Promise<Record<string, number>> {
+  if (slugs.length === 0) return {};
+  const rows = await db
+    .select({
+      slug: attributes.slug,
+      storeCount: sql<number>`count(${storeAttributes.storeId})`.mapWith(Number),
+    })
+    .from(attributes)
+    .leftJoin(storeAttributes, eq(storeAttributes.attributeId, attributes.id))
+    .where(inArray(attributes.slug, [...slugs]))
+    .groupBy(attributes.slug);
+  return Object.fromEntries(rows.map((row) => [row.slug, row.storeCount]));
+}
+
+/** One store with its attributes and weekly hours (Week D detail panel). */
+export async function getStoreDetails(db: Db, storeId: number): Promise<StoreDetails | null> {
+  const [store] = await db.select(storeSelection).from(stores).where(eq(stores.id, storeId));
+  if (!store) return null;
+
+  const [storeAttrs, hours] = await Promise.all([
+    db
+      .select({
+        slug: attributes.slug,
+        label: attributes.label,
+        category: attributes.category,
+      })
+      .from(storeAttributes)
+      .innerJoin(attributes, eq(storeAttributes.attributeId, attributes.id))
+      .where(eq(storeAttributes.storeId, storeId))
+      .orderBy(asc(attributes.category), asc(attributes.label)),
+    db
+      .select({
+        dayOfWeek: storeHours.dayOfWeek,
+        opensAt: storeHours.opensAt,
+        closesAt: storeHours.closesAt,
+      })
+      .from(storeHours)
+      .where(eq(storeHours.storeId, storeId))
+      .orderBy(asc(storeHours.dayOfWeek)),
+  ]);
+
+  return {
+    ...store,
+    attributes: storeAttrs,
+    hours: hours.map((h) => ({
+      ...h,
+      // pg `time` renders as HH:MM:SS; the domain contract is HH:MM.
+      opensAt: h.opensAt.slice(0, 5),
+      closesAt: h.closesAt.slice(0, 5),
+    })),
+  };
+}
+
+/**
+ * Atomically increment a windowed usage counter and return the new count
+ * (cost protection: per-IP rate limit + daily budget breaker). Expired
+ * rows are swept opportunistically on ~2% of calls.
+ */
+export async function incrementUsageCounter(
+  db: Db,
+  key: string,
+  ttlSeconds: number,
+): Promise<number> {
+  if (Math.random() < 0.02) {
+    void db
+      .delete(usageCounters)
+      .where(sql`${usageCounters.expiresAt} < now()`)
+      .catch(() => {});
+  }
+  const rows = await db
+    .insert(usageCounters)
+    .values({
+      key,
+      count: 1,
+      expiresAt: sql`now() + make_interval(secs => ${ttlSeconds})`,
+    })
+    .onConflictDoUpdate({
+      target: usageCounters.key,
+      set: { count: sql`${usageCounters.count} + 1` },
+    })
+    .returning({ count: usageCounters.count });
+  return rows[0]!.count;
 }
 
 /** The full attribute catalog — source of truth for AI enums and UI filters. */

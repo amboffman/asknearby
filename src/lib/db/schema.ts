@@ -79,6 +79,16 @@ export const attributes = pgTable("attributes", {
   category: attributeCategory().notNull(),
 });
 
+// Cost-protection counters (Week D): serverless instances share no memory,
+// so per-IP rate limits and the daily AI budget breaker count here.
+// Keys are windowed (e.g. "ip:1.2.3.4:2026-07-04T13:37", "global:2026-07-04");
+// expired rows are opportunistically swept.
+export const usageCounters = pgTable("usage_counters", {
+  key: text().primaryKey(),
+  count: integer().notNull().default(0),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+});
+
 export const storeAttributes = pgTable(
   "store_attributes",
   {
