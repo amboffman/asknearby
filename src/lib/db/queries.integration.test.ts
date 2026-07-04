@@ -8,8 +8,21 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 config({ path: ".env.local", quiet: true });
 
+import { sql } from "drizzle-orm";
+
+import { checkCostGuard } from "@/lib/config/cost-guard";
+import { searchStores } from "@/lib/search";
+import { searchQuerySchema } from "@/lib/types/search-query";
+
 import { type Db, getDb } from "./client";
-import { findStores, listAttributes, UnknownAttributeError } from "./queries";
+import {
+  countStoresPerAttribute,
+  findStores,
+  getStoreDetails,
+  incrementUsageCounter,
+  listAttributes,
+  UnknownAttributeError,
+} from "./queries";
 import { applySeed, generateSeedData } from "./seed";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -124,6 +137,31 @@ describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {
     await expect(promise).rejects.toMatchObject({ unknownSlugs: ["heliport"] });
   });
 
+  it("getStoreDetails returns the seed's attributes and hours for a store", async () => {
+    const [downtown] = await findStores(db, {
+      near: { ...columbus, radiusMeters: 3_000 },
+      limit: 1,
+    });
+    expect(downtown).toBeDefined();
+
+    const details = await getStoreDetails(db, downtown!.id);
+    expect(details).not.toBeNull();
+
+    const seeded = seedData.stores.find((s) => s.slug === details!.slug)!;
+    expect(details!.attributes.map((a) => a.slug).sort()).toEqual(
+      [...seeded.attributeSlugs].sort(),
+    );
+    expect(details!.hours.map((h) => `${h.dayOfWeek} ${h.opensAt}-${h.closesAt}`)).toEqual(
+      [...seeded.hours]
+        .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+        .map((h) => `${h.dayOfWeek} ${h.opensAt}-${h.closesAt}`),
+    );
+  });
+
+  it("getStoreDetails returns null for an unknown id", async () => {
+    await expect(getStoreDetails(db, 999_999)).resolves.toBeNull();
+  });
+
   it("lists the seeded attribute catalog", async () => {
     const catalog = await listAttributes(db);
 
@@ -132,6 +170,85 @@ describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {
       slug: "mens-department",
       label: "Men's department",
       category: "department",
+    });
+  });
+
+  it("counts stores per attribute chain-wide, matching the seed", async () => {
+    const slugs = ["mens-department", "ev-charging"];
+    const counts = await countStoresPerAttribute(db, slugs);
+
+    for (const slug of slugs) {
+      const expected = seedData.stores.filter((s) => s.attributeSlugs.includes(slug)).length;
+      expect(counts[slug]).toBe(expected);
+    }
+  });
+
+  // lib/search's no-results diagnosis lives in this file so all live-DB
+  // tests stay in one file (vitest runs files in parallel; two suites
+  // reseeding the same database would race).
+  it("diagnoses zero results: filter counts + nearest match distance", async () => {
+    const denver = { latitude: 39.7392, longitude: -104.9903 };
+    const outcome = await searchStores(
+      db,
+      searchQuerySchema.parse({
+        attributeSlugs: ["mens-department"],
+        geo: { kind: "place", placeName: "Denver" },
+      }),
+      { geocoder: { geocode: () => Promise.resolve(denver) } },
+    );
+
+    expect(outcome.stores).toHaveLength(0);
+    expect(outcome.noResults).toBeDefined();
+    const diagnosis = outcome.noResults!;
+
+    const chainWide = seedData.stores.filter((s) =>
+      s.attributeSlugs.includes("mens-department"),
+    ).length;
+    expect(diagnosis.attributeCounts).toEqual([{ slug: "mens-department", storeCount: chainWide }]);
+    expect(diagnosis.matchesIgnoringLocation).toBe(chainWide);
+    // Denver is ~1,700 km from the nearest metro (Chicago).
+    expect(diagnosis.nearestDistanceMeters).toBeGreaterThan(1_000_000);
+  });
+
+  it("omits the diagnosis when results exist", async () => {
+    const outcome = await searchStores(db, searchQuerySchema.parse({}), {
+      geocoder: { geocode: () => Promise.resolve(null) },
+    });
+    expect(outcome.stores.length).toBeGreaterThan(0);
+    expect(outcome.noResults).toBeUndefined();
+  });
+
+  // Cost-protection counters + guard (also live-DB, so they stay in this
+  // file). Test keys use a fixed fake date and are wiped up front.
+  it("incrementUsageCounter counts atomically per key", async () => {
+    await db.execute(sql`DELETE FROM usage_counters WHERE key LIKE 'test:%'`);
+
+    await expect(incrementUsageCounter(db, "test:a", 60)).resolves.toBe(1);
+    await expect(incrementUsageCounter(db, "test:a", 60)).resolves.toBe(2);
+    await expect(incrementUsageCounter(db, "test:b", 60)).resolves.toBe(1);
+  });
+
+  it("checkCostGuard enforces the per-IP limit, then the daily budget", async () => {
+    await db.execute(
+      sql`DELETE FROM usage_counters WHERE key LIKE 'ip:test-%' OR key = 'global:2001-01-01'`,
+    );
+    const now = new Date("2001-01-01T12:00:00Z");
+    const limits = { perIpPerMinute: 2, dailyBudget: 3 };
+
+    // Requests 1–2 from ip A pass; request 3 hits the per-IP limit.
+    await expect(checkCostGuard(db, "test-a", limits, now)).resolves.toEqual({ allowed: true });
+    await expect(checkCostGuard(db, "test-a", limits, now)).resolves.toEqual({ allowed: true });
+    await expect(checkCostGuard(db, "test-a", limits, now)).resolves.toMatchObject({
+      allowed: false,
+      reason: "ip_rate_limited",
+    });
+
+    // A different IP passes once more (daily total now 3)…
+    await expect(checkCostGuard(db, "test-b", limits, now)).resolves.toEqual({ allowed: true });
+    // …then the global daily budget trips regardless of IP.
+    await expect(checkCostGuard(db, "test-c", limits, now)).resolves.toMatchObject({
+      allowed: false,
+      reason: "daily_budget_exhausted",
     });
   });
 });

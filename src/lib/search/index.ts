@@ -1,7 +1,7 @@
 // lib/search — pure functions from SearchQuery to typed lib/db calls
 // (AGENTS.md boundary: no AI, no HTTP; fully unit-testable). The only
 // async dependency is the GeocodingPort, injected by the caller.
-import { type Db, type FindStoresFilters, findStores } from "@/lib/db";
+import { countStoresPerAttribute, type Db, type FindStoresFilters, findStores } from "@/lib/db";
 import { type GeocodingPort } from "@/lib/providers/geocoding";
 import { RADIUS_KM, type SearchQuery } from "@/lib/types/search-query";
 import { type Coordinates } from "@/lib/types/geo";
@@ -36,10 +36,35 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * "Near me" (Week D): when the sentence carried no location intent and the
+ * browser shared the user's coordinates, search around the user. An
+ * explicit place or coordinates in the sentence always wins.
+ */
+export function applyUserLocation(
+  query: SearchQuery,
+  userLocation: Coordinates | null | undefined,
+): SearchQuery {
+  if (!userLocation || query.geo.kind !== "none") return query;
+  return {
+    ...query,
+    geo: { kind: "coordinates", ...userLocation },
+  };
+}
+
 export interface SearchDeps {
   geocoder: GeocodingPort;
   /** Injected clock for deterministic tests; defaults to Date.now. */
   now?: () => Date;
+}
+
+export interface NoResultsDiagnosis {
+  /** Chain-wide store count per requested attribute (0 = filter matches nothing, ever). */
+  attributeCounts: Array<{ slug: string; storeCount: number }>;
+  /** Stores matching all non-geo filters anywhere in the chain. */
+  matchesIgnoringLocation: number;
+  /** Distance to the nearest such match, when the search had a center. */
+  nearestDistanceMeters: number | null;
 }
 
 export interface SearchOutcome {
@@ -50,6 +75,40 @@ export interface SearchOutcome {
    * search then ran WITHOUT a location filter (Week D surfaces this).
    */
   unresolvedPlaceName?: string;
+  /** Present only when zero stores matched: why, and what's closest. */
+  noResults?: NoResultsDiagnosis;
+}
+
+/** Explain an empty result: which filters bite, and what's nearest. */
+export async function diagnoseNoResults(
+  db: Db,
+  query: SearchQuery,
+  center: Coordinates | null,
+  now: Date,
+): Promise<NoResultsDiagnosis> {
+  const counts = await countStoresPerAttribute(db, query.attributeSlugs);
+  const nonGeoFilters = buildFindStoresFilters(query, null, now);
+  const anywhere = await findStores(db, { ...nonGeoFilters, limit: 100 });
+
+  let nearestDistanceMeters: number | null = null;
+  if (center && anywhere.length > 0) {
+    // `near` without radiusMeters sorts by distance without filtering.
+    const [nearest] = await findStores(db, {
+      ...nonGeoFilters,
+      near: { ...center },
+      limit: 1,
+    });
+    nearestDistanceMeters = nearest?.distanceMeters ?? null;
+  }
+
+  return {
+    attributeCounts: query.attributeSlugs.map((slug) => ({
+      slug,
+      storeCount: counts[slug] ?? 0,
+    })),
+    matchesIgnoringLocation: anywhere.length,
+    nearestDistanceMeters,
+  };
 }
 
 /** Resolve the query's geo intent to coordinates (or null). */
@@ -79,8 +138,15 @@ export async function searchStores(
   query: SearchQuery,
   deps: SearchDeps,
 ): Promise<SearchOutcome> {
+  const now = (deps.now ?? (() => new Date()))();
   const { center, unresolvedPlaceName } = await resolveCenter(query, deps.geocoder);
-  const filters = buildFindStoresFilters(query, center, (deps.now ?? (() => new Date()))());
+  const filters = buildFindStoresFilters(query, center, now);
   const stores = await findStores(db, filters);
-  return unresolvedPlaceName ? { query, stores, unresolvedPlaceName } : { query, stores };
+
+  const outcome: SearchOutcome = { query, stores };
+  if (unresolvedPlaceName) outcome.unresolvedPlaceName = unresolvedPlaceName;
+  if (stores.length === 0) {
+    outcome.noResults = await diagnoseNoResults(db, query, center, now);
+  }
+  return outcome;
 }
