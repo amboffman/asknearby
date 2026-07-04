@@ -6,6 +6,7 @@ import { type FormEvent, useRef, useState } from "react";
 
 import { StoreMap, type StoreMapMarker } from "@/components/store-map";
 import { type SearchOutcome } from "@/lib/search";
+import { type Coordinates } from "@/lib/types/geo";
 import { type StoreDetails } from "@/lib/types/store";
 
 import { StoreDetailPanel } from "./store-detail-panel";
@@ -20,9 +21,39 @@ export function SearchExperience() {
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<StoreDetails | null>(null);
+  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
+  const [locating, setLocating] = useState(false);
   const rowRefs = useRef(new Map<number, HTMLLIElement>());
   const detailCache = useRef(new Map<number, StoreDetails>());
   const selectedIdRef = useRef<number | null>(null);
+
+  /** "Near me": browser geolocation, with typed-place as the fallback. */
+  function toggleMyLocation() {
+    if (userLocation) {
+      setUserLocation(null);
+      return;
+    }
+    if (!("geolocation" in navigator)) {
+      setError("Location isn't available — name a place instead (e.g. “near Columbus”).");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setError(null);
+      },
+      () => {
+        setLocating(false);
+        setError("Couldn't get your location — name a place instead (e.g. “near Columbus”).");
+      },
+      { timeout: 8_000, maximumAge: 300_000 },
+    );
+  }
 
   async function runSearch(q: string) {
     setPending(true);
@@ -31,7 +62,7 @@ export function SearchExperience() {
       const response = await fetch("/api/search", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ q }),
+        body: JSON.stringify({ q, userLocation: userLocation ?? undefined }),
       });
       const body = (await response.json()) as SearchOutcome & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Search failed.");
@@ -111,6 +142,19 @@ export function SearchExperience() {
               className="flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-teal-700"
               maxLength={300}
             />
+            <button
+              type="button"
+              onClick={toggleMyLocation}
+              disabled={locating}
+              title="Search near your location when no place is named"
+              className={`rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-40 ${
+                userLocation
+                  ? "border-teal-800 bg-teal-50 text-teal-900"
+                  : "border-neutral-300 text-neutral-600 hover:border-neutral-400"
+              }`}
+            >
+              {locating ? "Locating…" : userLocation ? "✓ Near me" : "Near me"}
+            </button>
             <button
               type="submit"
               disabled={pending || !sentence.trim()}

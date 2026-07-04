@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { searchQuerySchema } from "@/lib/types/search-query";
 
-import { buildFindStoresFilters } from "./index";
+import { applyUserLocation, buildFindStoresFilters } from "./index";
 
 const now = new Date("2026-07-08T17:00:00Z");
 const columbus = { latitude: 39.96, longitude: -83.0 };
@@ -51,5 +51,30 @@ describe("buildFindStoresFilters", () => {
   it("maps openNow to the pinned clock instant", () => {
     expect(buildFindStoresFilters(query({ openNow: true }), null, now).openAt).toBe(now);
     expect(buildFindStoresFilters(query({}), null, now).openAt).toBeUndefined();
+  });
+});
+
+describe("applyUserLocation", () => {
+  const user = { latitude: 40.0, longitude: -83.1 };
+
+  it("fills in the user's coordinates when the sentence had no location", () => {
+    const result = applyUserLocation(query({}), user);
+    expect(result.geo).toEqual({ kind: "coordinates", ...user });
+  });
+
+  it("never overrides an explicit place or coordinates", () => {
+    const place = query({ geo: { kind: "place", placeName: "Columbus" } });
+    expect(applyUserLocation(place, user).geo).toEqual(place.geo);
+
+    const coords = query({
+      geo: { kind: "coordinates", latitude: 41.8, longitude: -87.6 },
+    });
+    expect(applyUserLocation(coords, user).geo).toEqual(coords.geo);
+  });
+
+  it("is a no-op without a user location", () => {
+    const q = query({});
+    expect(applyUserLocation(q, null)).toBe(q);
+    expect(applyUserLocation(q, undefined)).toBe(q);
   });
 });
