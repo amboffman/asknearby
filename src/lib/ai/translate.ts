@@ -1,7 +1,6 @@
 // lib/ai — Vercel AI SDK orchestration (AGENTS.md boundary: server-only;
 // no SQL, no JSX, no maps-vendor calls). The model's ONLY job is one forced
 // tool call: natural language → typed SearchQuery (ADR-001).
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateText, type LanguageModel, tool } from "ai";
 
 import {
@@ -11,13 +10,7 @@ import {
 } from "@/lib/types/search-query";
 import { type Attribute } from "@/lib/types/store";
 
-/**
- * Cheap + fast is the point of the translator architecture (ADR-001): the
- * model emits ~100 tokens of structured output, so Haiku-tier is the
- * default. Override with AI_MODEL (e.g. claude-opus-4-8) to trade cost for
- * headroom; Week E's eval harness compares candidates on real accuracy.
- */
-export const DEFAULT_MODEL_ID = "claude-haiku-4-5";
+import { resolveModel } from "./provider";
 
 export const SEARCH_TOOL_NAME = "search_stores";
 
@@ -29,13 +22,15 @@ export class TranslationFailedError extends Error {
 }
 
 export interface TranslateOptions {
-  /** Injected in tests (MockLanguageModelV4); defaults to Anthropic. */
+  /** Injected in tests (MockLanguageModelV4) and evals; defaults to the
+   * AI_PROVIDER/AI_MODEL-configured model (lib/ai/provider). */
   model?: LanguageModel;
 }
 
-function defaultModel(): LanguageModel {
-  // createAnthropic() reads ANTHROPIC_API_KEY from the environment.
-  return createAnthropic()(process.env.AI_MODEL ?? DEFAULT_MODEL_ID);
+export interface TranslationResult {
+  query: SearchQuery;
+  latencyMs: number;
+  usage: { inputTokens: number | null; outputTokens: number | null };
 }
 
 function systemPrompt(catalog: readonly Attribute[]): string {
@@ -64,9 +59,20 @@ export async function translateQuery(
   catalog: readonly Attribute[],
   options: TranslateOptions = {},
 ): Promise<SearchQuery> {
+  const { query } = await translateQueryDetailed(input, catalog, options);
+  return query;
+}
+
+/** translateQuery plus latency + token usage — what the eval harness scores. */
+export async function translateQueryDetailed(
+  input: string,
+  catalog: readonly Attribute[],
+  options: TranslateOptions = {},
+): Promise<TranslationResult> {
   const wireSchema = buildSearchQueryToolSchema(catalog.map((a) => a.slug));
+  const startedAt = performance.now();
   const result = await generateText({
-    model: options.model ?? defaultModel(),
+    model: options.model ?? resolveModel().model,
     system: systemPrompt(catalog),
     prompt: input,
     tools: {
@@ -78,6 +84,7 @@ export async function translateQuery(
     },
     toolChoice: { type: "tool", toolName: SEARCH_TOOL_NAME },
   });
+  const latencyMs = performance.now() - startedAt;
 
   const call = result.toolCalls.find((c) => c.toolName === SEARCH_TOOL_NAME);
   if (!call) {
@@ -94,5 +101,12 @@ export async function translateQuery(
       `Model emitted an invalid SearchQuery: ${parsed.error.message}`,
     );
   }
-  return toSearchQuery(parsed.data);
+  return {
+    query: toSearchQuery(parsed.data),
+    latencyMs,
+    usage: {
+      inputTokens: result.usage.inputTokens ?? null,
+      outputTokens: result.usage.outputTokens ?? null,
+    },
+  };
 }
