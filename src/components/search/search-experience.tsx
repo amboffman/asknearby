@@ -9,6 +9,7 @@ import { type SearchOutcome } from "@/lib/search";
 import { type Coordinates } from "@/lib/types/geo";
 import { type StoreDetails } from "@/lib/types/store";
 
+import { NoResults } from "./no-results";
 import { StoreDetailPanel } from "./store-detail-panel";
 
 const EXAMPLE_SENTENCE = "a location with a men's department and free parking near Columbus";
@@ -194,13 +195,7 @@ export function SearchExperience() {
               </p>
             </div>
           ) : outcome.stores.length === 0 ? (
-            <div className="p-8 text-center text-neutral-500">
-              No stores match
-              {outcome.query.attributeSlugs.length > 0 && (
-                <> the filters: {outcome.query.attributeSlugs.join(", ")}</>
-              )}
-              .
-            </div>
+            <NoResults outcome={outcome} />
           ) : (
             <ul>
               {outcome.stores.map((store) => {

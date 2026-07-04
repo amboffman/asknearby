@@ -8,8 +8,17 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 config({ path: ".env.local", quiet: true });
 
+import { searchStores } from "@/lib/search";
+import { searchQuerySchema } from "@/lib/types/search-query";
+
 import { type Db, getDb } from "./client";
-import { findStores, getStoreDetails, listAttributes, UnknownAttributeError } from "./queries";
+import {
+  countStoresPerAttribute,
+  findStores,
+  getStoreDetails,
+  listAttributes,
+  UnknownAttributeError,
+} from "./queries";
 import { applySeed, generateSeedData } from "./seed";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -158,5 +167,50 @@ describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {
       label: "Men's department",
       category: "department",
     });
+  });
+
+  it("counts stores per attribute chain-wide, matching the seed", async () => {
+    const slugs = ["mens-department", "ev-charging"];
+    const counts = await countStoresPerAttribute(db, slugs);
+
+    for (const slug of slugs) {
+      const expected = seedData.stores.filter((s) => s.attributeSlugs.includes(slug)).length;
+      expect(counts[slug]).toBe(expected);
+    }
+  });
+
+  // lib/search's no-results diagnosis lives in this file so all live-DB
+  // tests stay in one file (vitest runs files in parallel; two suites
+  // reseeding the same database would race).
+  it("diagnoses zero results: filter counts + nearest match distance", async () => {
+    const denver = { latitude: 39.7392, longitude: -104.9903 };
+    const outcome = await searchStores(
+      db,
+      searchQuerySchema.parse({
+        attributeSlugs: ["mens-department"],
+        geo: { kind: "place", placeName: "Denver" },
+      }),
+      { geocoder: { geocode: () => Promise.resolve(denver) } },
+    );
+
+    expect(outcome.stores).toHaveLength(0);
+    expect(outcome.noResults).toBeDefined();
+    const diagnosis = outcome.noResults!;
+
+    const chainWide = seedData.stores.filter((s) =>
+      s.attributeSlugs.includes("mens-department"),
+    ).length;
+    expect(diagnosis.attributeCounts).toEqual([{ slug: "mens-department", storeCount: chainWide }]);
+    expect(diagnosis.matchesIgnoringLocation).toBe(chainWide);
+    // Denver is ~1,700 km from the nearest metro (Chicago).
+    expect(diagnosis.nearestDistanceMeters).toBeGreaterThan(1_000_000);
+  });
+
+  it("omits the diagnosis when results exist", async () => {
+    const outcome = await searchStores(db, searchQuerySchema.parse({}), {
+      geocoder: { geocode: () => Promise.resolve(null) },
+    });
+    expect(outcome.stores.length).toBeGreaterThan(0);
+    expect(outcome.noResults).toBeUndefined();
   });
 });

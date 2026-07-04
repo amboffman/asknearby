@@ -8,7 +8,11 @@ import { attributes, storeAttributes, storeHours, stores } from "./schema";
 export interface NearFilter {
   latitude: number;
   longitude: number;
-  radiusMeters: number;
+  /**
+   * Omit to sort by distance WITHOUT filtering — used by no-results
+   * diagnosis to find the nearest match outside the requested radius.
+   */
+  radiusMeters?: number;
 }
 
 export interface FindStoresFilters {
@@ -85,7 +89,7 @@ export function buildFindStoresQuery(db: Db, filters: FindStoresFilters) {
       ),
     );
   }
-  if (near) {
+  if (near?.radiusMeters !== undefined) {
     // Geography + ST_DWithin = meters on the spheroid, GiST-indexed.
     conditions.push(
       sql`ST_DWithin(${stores.location}, ${geographyPoint(near.longitude, near.latitude)}, ${near.radiusMeters})`,
@@ -140,6 +144,27 @@ export async function findStores(
     ...row,
     distanceMeters: row.distanceMeters === null ? null : Number(row.distanceMeters),
   }));
+}
+
+/**
+ * Chain-wide store counts per attribute slug (no-results diagnosis:
+ * "which filters matched nothing"). Slugs are assumed catalog-valid.
+ */
+export async function countStoresPerAttribute(
+  db: Db,
+  slugs: readonly string[],
+): Promise<Record<string, number>> {
+  if (slugs.length === 0) return {};
+  const rows = await db
+    .select({
+      slug: attributes.slug,
+      storeCount: sql<number>`count(${storeAttributes.storeId})`.mapWith(Number),
+    })
+    .from(attributes)
+    .leftJoin(storeAttributes, eq(storeAttributes.attributeId, attributes.id))
+    .where(inArray(attributes.slug, [...slugs]))
+    .groupBy(attributes.slug);
+  return Object.fromEntries(rows.map((row) => [row.slug, row.storeCount]));
 }
 
 /** One store with its attributes and weekly hours (Week D detail panel). */
