@@ -44,6 +44,16 @@ describe("buildFindStoresQuery", () => {
     expect(sql).toMatch(/order by "stores"\."name"/i);
   });
 
+  it("filters open stores in each store's own timezone", () => {
+    const openAt = new Date("2026-07-08T17:00:00Z");
+    const { sql, params } = buildFindStoresQuery(db, { openAt }).toSQL();
+
+    expect(sql).toContain('AT TIME ZONE "stores"."timezone"');
+    expect(sql).toMatch(/EXTRACT\(DOW FROM/);
+    expect(sql).toContain('"store_hours"');
+    expect(params).toContain(openAt.toISOString());
+  });
+
   it("applies a default limit and honors an explicit one", () => {
     expect(buildFindStoresQuery(db, {}).toSQL().params).toContain(50);
     expect(buildFindStoresQuery(db, { limit: 5 }).toSQL().params).toContain(5);
