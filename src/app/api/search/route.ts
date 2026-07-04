@@ -6,6 +6,7 @@
 import { z } from "zod";
 
 import { TranslationFailedError, translateQuery } from "@/lib/ai/translate";
+import { checkCostGuard } from "@/lib/config/cost-guard";
 import { createAppGeocoder } from "@/lib/config/geocoder";
 import { getDb, listAttributes } from "@/lib/db";
 import { applyUserLocation, searchStores } from "@/lib/search";
@@ -32,6 +33,25 @@ export async function POST(request: Request) {
 
   try {
     const db = getDb();
+
+    // Cost protection BEFORE the paid model call (per-IP + daily budget).
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+    const guard = await checkCostGuard(db, ip);
+    if (!guard.allowed) {
+      return Response.json(
+        {
+          error:
+            guard.reason === "ip_rate_limited"
+              ? "Too many searches — try again in a minute."
+              : "Today's search budget is used up — please come back tomorrow.",
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(guard.retryAfterSeconds) },
+        },
+      );
+    }
+
     const catalog = await listAttributes(db);
     const translated = await translateQuery(parsedBody.data.q, catalog);
     const query = applyUserLocation(translated, parsedBody.data.userLocation);

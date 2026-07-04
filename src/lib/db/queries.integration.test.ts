@@ -8,6 +8,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 config({ path: ".env.local", quiet: true });
 
+import { sql } from "drizzle-orm";
+
+import { checkCostGuard } from "@/lib/config/cost-guard";
 import { searchStores } from "@/lib/search";
 import { searchQuerySchema } from "@/lib/types/search-query";
 
@@ -16,6 +19,7 @@ import {
   countStoresPerAttribute,
   findStores,
   getStoreDetails,
+  incrementUsageCounter,
   listAttributes,
   UnknownAttributeError,
 } from "./queries";
@@ -212,5 +216,39 @@ describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {
     });
     expect(outcome.stores.length).toBeGreaterThan(0);
     expect(outcome.noResults).toBeUndefined();
+  });
+
+  // Cost-protection counters + guard (also live-DB, so they stay in this
+  // file). Test keys use a fixed fake date and are wiped up front.
+  it("incrementUsageCounter counts atomically per key", async () => {
+    await db.execute(sql`DELETE FROM usage_counters WHERE key LIKE 'test:%'`);
+
+    await expect(incrementUsageCounter(db, "test:a", 60)).resolves.toBe(1);
+    await expect(incrementUsageCounter(db, "test:a", 60)).resolves.toBe(2);
+    await expect(incrementUsageCounter(db, "test:b", 60)).resolves.toBe(1);
+  });
+
+  it("checkCostGuard enforces the per-IP limit, then the daily budget", async () => {
+    await db.execute(
+      sql`DELETE FROM usage_counters WHERE key LIKE 'ip:test-%' OR key = 'global:2001-01-01'`,
+    );
+    const now = new Date("2001-01-01T12:00:00Z");
+    const limits = { perIpPerMinute: 2, dailyBudget: 3 };
+
+    // Requests 1–2 from ip A pass; request 3 hits the per-IP limit.
+    await expect(checkCostGuard(db, "test-a", limits, now)).resolves.toEqual({ allowed: true });
+    await expect(checkCostGuard(db, "test-a", limits, now)).resolves.toEqual({ allowed: true });
+    await expect(checkCostGuard(db, "test-a", limits, now)).resolves.toMatchObject({
+      allowed: false,
+      reason: "ip_rate_limited",
+    });
+
+    // A different IP passes once more (daily total now 3)…
+    await expect(checkCostGuard(db, "test-b", limits, now)).resolves.toEqual({ allowed: true });
+    // …then the global daily budget trips regardless of IP.
+    await expect(checkCostGuard(db, "test-c", limits, now)).resolves.toMatchObject({
+      allowed: false,
+      reason: "daily_budget_exhausted",
+    });
   });
 });

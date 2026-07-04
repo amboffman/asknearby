@@ -7,6 +7,7 @@ export {
   type FindStoresFilters,
   findStores,
   getStoreDetails,
+  incrementUsageCounter,
   listAttributes,
   type NearFilter,
   UnknownAttributeError,
