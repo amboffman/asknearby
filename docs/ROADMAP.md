@@ -74,14 +74,19 @@ was made, checkbox updated here.
 
 ### Week B (Jul 13–19) — AI translation core
 
-- [ ] `SearchQuery` zod schema in `lib/types`: attribute filters, geo intent
-      (place name | coordinates | none), radius, open-now
-- [ ] `lib/ai`: Vercel AI SDK + Anthropic provider, one forced tool call
-      NL → `SearchQuery`; tested against a mocked model
-- [ ] `lib/search`: pure functions `SearchQuery` → `lib/db` calls, unit
-      tested
-- [ ] Terminal harness: `pnpm ask "…"` → query JSON + matching rows
-- [ ] ADR-002: Vercel AI SDK vs raw SDK (record what it abstracts vs MLIP)
+- [x] `SearchQuery` zod schema in `lib/types`: attribute filters, geo intent
+      (place name | coordinates | none), radius, open-now (2026-07-04; plus
+      a flat model-facing tool-schema variant — see ADR-002)
+- [x] `lib/ai`: Vercel AI SDK + Anthropic provider, one forced tool call
+      NL → `SearchQuery`; tested against a mocked model (2026-07-04;
+      default `claude-haiku-4-5`, `AI_MODEL` override)
+- [x] `lib/search`: pure functions `SearchQuery` → `lib/db` calls, unit
+      tested (2026-07-04; incl. open-now SQL in lib/db and a gazetteer
+      `GeocodingPort` adapter pulled forward from Week C)
+- [x] Terminal harness: `pnpm ask "…"` → query JSON + matching rows
+      (2026-07-04; verified live — flagship, open-now, and radius queries)
+- [x] ADR-002: Vercel AI SDK vs raw SDK (record what it abstracts vs MLIP)
+      (2026-07-04: [ADR-002](adr/002-vercel-ai-sdk.md))
 
 **Demo:** `pnpm ask "stores with a men's department and free parking near
 Columbus"` → query JSON + rows in the terminal.
