@@ -51,9 +51,11 @@ was made, checkbox updated here.
 
 - [x] Repo scaffold: toolchain mirrored from MLIP, founding docs, app
       skeleton (scaffolded 2026-07-04)
-- [ ] ADR-001: query-translator architecture + data model (attribute
+- [x] ADR-001: query-translator architecture + data model (attribute
       storage: columns vs jsonb vs join table — argue it like a locator
-      veteran; pick the fictional brand name)
+      veteran; pick the fictional brand name) (2026-07-04:
+      [ADR-001](adr/001-query-translator-and-data-model.md) — catalog +
+      join table; brand: Cedar & Main Outfitters)
 - [ ] Supabase project with PostGIS enabled; `DATABASE_URL` in `.env.local`
       (author does account setup), then migrate + seed against it
 - [ ] Drizzle schema + migrations (stores with a `geography` column,
