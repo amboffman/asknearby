@@ -9,7 +9,16 @@ export interface BoundsBox {
   east: number;
 }
 
-/** Smallest box containing all markers, or null when there are none. */
+/**
+ * Smallest box containing all markers, or null when there are none.
+ *
+ * KNOWN LIMITATION: naive min/max longitude — a marker set straddling the
+ * antimeridian (lon +179.9 and -179.9) produces a near-world-spanning box
+ * instead of the short way around. Fine for the Midwest-US demo dataset;
+ * a white-label dataset near ±180° needs wrap-aware bounds (both Google
+ * LatLngBounds and MapLibre LngLatBounds accept east < west spans). See
+ * docs/audit/2026-07-06-remaining-fixes.md.
+ */
 export function boundsOf(markers: readonly StoreMapMarker[]): BoundsBox | null {
   const first = markers[0];
   if (!first) return null;
