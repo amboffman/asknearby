@@ -1,12 +1,12 @@
 // POST /api/search — the whole spine in one handler: sentence -> forced
 // tool call -> SearchQuery -> geocode -> PostGIS -> rows.
-// NOTE: calls a paid model per request. Local/dev only until Week D lands
-// the per-IP rate limit + daily budget breaker (AGENTS.md requirement
-// before the URL is shared anywhere).
+// Calls a paid model per request, so the cost guard (per-IP rate limit +
+// daily budget breaker) runs first — the AGENTS.md precondition for
+// sharing the deployed URL.
 import { z } from "zod";
 
 import { TranslationFailedError, translateQuery } from "@/lib/ai/translate";
-import { checkCostGuard } from "@/lib/config/cost-guard";
+import { checkCostGuard, clientIpFrom } from "@/lib/config/cost-guard";
 import { createAppGeocoder } from "@/lib/config/geocoder";
 import { getDb, listAttributes } from "@/lib/db";
 import { applyUserLocation, attachStoreHours, searchStores } from "@/lib/search";
@@ -35,8 +35,7 @@ export async function POST(request: Request) {
     const db = getDb();
 
     // Cost protection BEFORE the paid model call (per-IP + daily budget).
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    const guard = await checkCostGuard(db, ip);
+    const guard = await checkCostGuard(db, clientIpFrom(request));
     if (!guard.allowed) {
       return Response.json(
         {

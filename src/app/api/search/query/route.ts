@@ -6,7 +6,7 @@
 // the paid geocoder is unreachable from this route by construction.
 import { z } from "zod";
 
-import { checkIpRateLimit } from "@/lib/config/cost-guard";
+import { checkIpRateLimit, clientIpFrom } from "@/lib/config/cost-guard";
 import { getDb, UnknownAttributeError } from "@/lib/db";
 import { attachStoreHours, searchStores } from "@/lib/search";
 import { searchQuerySchema } from "@/lib/types/search-query";
@@ -33,8 +33,7 @@ export async function POST(request: Request) {
 
     // No model call here, so only the per-IP limiter applies — the daily
     // AI budget must not be drained by free re-runs.
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    const guard = await checkIpRateLimit(db, ip);
+    const guard = await checkIpRateLimit(db, clientIpFrom(request));
     if (!guard.allowed) {
       return Response.json(
         { error: "Too many searches — try again in a minute." },

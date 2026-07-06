@@ -10,11 +10,36 @@ export interface CostGuardLimits {
   dailyBudget: number;
 }
 
+/**
+ * A malformed value must not fail open: `Number("ten")` is NaN and every
+ * `count > NaN` comparison is false, which would silently disable the
+ * guard entirely (and `Number("")` is 0, which would block everyone).
+ */
+function positiveIntFromEnv(raw: string | undefined, fallback: number): number {
+  const value = Number(raw);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
 export function limitsFromEnv(): CostGuardLimits {
   return {
-    perIpPerMinute: Number(process.env.RATE_LIMIT_PER_MINUTE ?? 10),
-    dailyBudget: Number(process.env.DAILY_AI_REQUEST_BUDGET ?? 300),
+    perIpPerMinute: positiveIntFromEnv(process.env.RATE_LIMIT_PER_MINUTE, 10),
+    dailyBudget: positiveIntFromEnv(process.env.DAILY_AI_REQUEST_BUDGET, 300),
   };
+}
+
+/**
+ * The counter key for a caller. Vercel overwrites `x-forwarded-for` with
+ * the real client IP; on any other host the header is client-forgeable,
+ * so this is best-effort keying, not authentication. Empty/oversized
+ * values collapse to "local" rather than minting attacker-chosen keys.
+ */
+export function clientIpFrom(request: Request): string {
+  const ip = (
+    request.headers.get("x-real-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0] ??
+    ""
+  ).trim();
+  return ip.length > 0 && ip.length <= 64 ? ip : "local";
 }
 
 export type CostGuardResult =
@@ -39,7 +64,9 @@ export async function checkIpRateLimit(
   const minuteWindow = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
   const ipCount = await incrementUsageCounter(db, `ip:${ip}:${minuteWindow}`, 120);
   if (ipCount > perIpPerMinute) {
-    return { allowed: false, reason: "ip_rate_limited", retryAfterSeconds: 60 };
+    // The window is minute-aligned, so it resets at the next :00.
+    const retryAfterSeconds = Math.max(1, 60 - now.getUTCSeconds());
+    return { allowed: false, reason: "ip_rate_limited", retryAfterSeconds };
   }
   return { allowed: true };
 }
