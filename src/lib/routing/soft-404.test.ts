@@ -27,6 +27,11 @@ describe("softRedirectTarget", () => {
     expect(softRedirectTarget(["api", "bogus"])).toBeNull();
   });
 
+  it("hard-404s api paths case-insensitively (prod routing is case-sensitive)", () => {
+    expect(softRedirectTarget(["API", "search"])).toBeNull();
+    expect(softRedirectTarget(["Api", "bogus"])).toBeNull();
+  });
+
   it("hard-404s asset-shaped paths", () => {
     expect(softRedirectTarget(["favicon.png"])).toBeNull();
     expect(softRedirectTarget(["img", "logo.svg"])).toBeNull();

@@ -14,7 +14,9 @@ const FILE_EXTENSION = /\.[a-z][a-z0-9]*$/i;
  */
 export function softRedirectTarget(segments: readonly string[], search = ""): string | null {
   const last = segments.at(-1);
-  if (last === undefined || segments[0] === "api") return null;
+  // Case-insensitive: /API/x is a 404 on case-sensitive prod routing and
+  // must hard-404 like /api/x, not enter an HTML redirect chain.
+  if (last === undefined || segments[0]?.toLowerCase() === "api") return null;
   if (FILE_EXTENSION.test(last)) return null;
   const parent = segments.slice(0, -1).map(encodeURIComponent).join("/");
   return `/${parent}${search}`;
