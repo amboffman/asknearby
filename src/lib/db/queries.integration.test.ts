@@ -11,16 +11,18 @@ config({ path: ".env.local", quiet: true });
 import { sql } from "drizzle-orm";
 
 import { checkCostGuard } from "@/lib/config/cost-guard";
-import { searchStores } from "@/lib/search";
+import { attachStoreHours, searchStores } from "@/lib/search";
 import { searchQuerySchema } from "@/lib/types/search-query";
 
 import { type Db, getDb } from "./client";
 import {
+  countStores,
   countStoresPerAttribute,
   findStores,
   getStoreDetails,
   incrementUsageCounter,
   listAttributes,
+  listHoursForStores,
   UnknownAttributeError,
 } from "./queries";
 import { applySeed, generateSeedData } from "./seed";
@@ -181,6 +183,53 @@ describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {
       const expected = seedData.stores.filter((s) => s.attributeSlugs.includes(slug)).length;
       expect(counts[slug]).toBe(expected);
     }
+  });
+
+  it("listHoursForStores groups HH:MM hours per store, matching the seed", async () => {
+    const results = await findStores(db, { limit: 3 });
+    const hoursByStore = await listHoursForStores(
+      db,
+      results.map((r) => r.id),
+    );
+
+    for (const store of results) {
+      const seeded = seedData.stores.find((s) => s.slug === store.slug)!;
+      const entries = hoursByStore.get(store.id) ?? [];
+      expect(entries.map((h) => `${h.dayOfWeek} ${h.opensAt}-${h.closesAt}`)).toEqual(
+        [...seeded.hours]
+          .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+          .map((h) => `${h.dayOfWeek} ${h.opensAt}-${h.closesAt}`),
+      );
+      // The domain contract is "HH:MM", not pg's "HH:MM:SS".
+      for (const entry of entries) {
+        expect(entry.opensAt).toMatch(/^\d{2}:\d{2}$/);
+        expect(entry.closesAt).toMatch(/^\d{2}:\d{2}$/);
+      }
+    }
+  });
+
+  it("attachStoreHours decorates every search result with its weekly hours", async () => {
+    const outcome = await searchStores(db, searchQuerySchema.parse({}), {
+      geocoder: { geocode: () => Promise.resolve(null) },
+    });
+    const withHours = await attachStoreHours(db, outcome);
+
+    expect(withHours.stores).toHaveLength(outcome.stores.length);
+    for (const store of withHours.stores) {
+      expect(store.hours).toBeDefined();
+      expect(store.hours!.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("countStores counts exactly, unaffected by the result limit", async () => {
+    await expect(countStores(db, {})).resolves.toBe(seedData.stores.length);
+
+    const evExpected = seedData.stores.filter((s) =>
+      s.attributeSlugs.includes("ev-charging"),
+    ).length;
+    await expect(countStores(db, { requiredAttributeSlugs: ["ev-charging"] })).resolves.toBe(
+      evExpected,
+    );
   });
 
   // lib/search's no-results diagnosis lives in this file so all live-DB

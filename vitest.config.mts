@@ -11,7 +11,5 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    // Scaffold only — remove when Week A lands the first real tests.
-    passWithNoTests: true,
   },
 });
