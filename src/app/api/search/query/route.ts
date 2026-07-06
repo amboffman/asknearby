@@ -1,22 +1,31 @@
 // POST /api/search/query — the deterministic half of the spine (ADR-004):
 // an already-typed SearchQuery in, rows out, NO model call. The UI's
 // query-chip edits re-run through here, so removing a filter costs a
-// database query, not tokens. Sends geo as coordinates (the center the
-// first search resolved), so the geocoder is never re-paid either.
+// database query, not tokens. Geo must arrive as coordinates (the center
+// the first search resolved) or none: `place` is rejected with a 400, so
+// the paid geocoder is unreachable from this route by construction.
 import { z } from "zod";
 
 import { checkIpRateLimit } from "@/lib/config/cost-guard";
-import { createAppGeocoder } from "@/lib/config/geocoder";
 import { getDb, UnknownAttributeError } from "@/lib/db";
 import { attachStoreHours, searchStores } from "@/lib/search";
 import { searchQuerySchema } from "@/lib/types/search-query";
 
 const bodySchema = z.object({ query: searchQuerySchema });
 
+/** Never resolves anything — this route must not pay for geocoding. */
+const inertGeocoder = { geocode: async () => null };
+
 export async function POST(request: Request) {
   const parsedBody = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) {
     return Response.json({ error: "Body must be { query: SearchQuery }." }, { status: 400 });
+  }
+  if (parsedBody.data.query.geo.kind === "place") {
+    return Response.json(
+      { error: "geo.kind 'place' is not accepted here — send the resolved coordinates instead." },
+      { status: 400 },
+    );
   }
 
   try {
@@ -34,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const outcome = await searchStores(db, parsedBody.data.query, {
-      geocoder: createAppGeocoder(),
+      geocoder: inertGeocoder,
     });
     return Response.json(await attachStoreHours(db, outcome));
   } catch (error) {

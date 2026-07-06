@@ -144,11 +144,16 @@ export function SearchExperience({
 
   /** Edited query → results, deterministically — no model call (ADR-004). */
   async function runQuery(query: SearchQuery) {
-    // Reuse the already-resolved center so the geocoder isn't re-paid.
+    // The query endpoint rejects raw place names (it must never pay the
+    // geocoder), so reuse the already-resolved center — or, when the first
+    // geocode failed (unresolvedPlaceName), drop geo to match the original
+    // unlocated search.
     const requery: SearchQuery =
-      query.geo.kind === "place" && outcome?.center
-        ? { ...query, geo: { kind: "coordinates", ...outcome.center } }
-        : query;
+      query.geo.kind !== "place"
+        ? query
+        : outcome?.center
+          ? { ...query, geo: { kind: "coordinates", ...outcome.center } }
+          : { ...query, geo: { kind: "none" }, radiusKm: undefined };
     await postSearch("/api/search/query", { query: requery });
   }
 
