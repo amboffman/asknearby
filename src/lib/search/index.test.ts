@@ -25,6 +25,15 @@ describe("buildFindStoresFilters", () => {
     expect(filters.requiredAttributeSlugs).toEqual(["mens-department", "free-parking"]);
   });
 
+  it("dedupes attribute slugs (each one becomes an EXISTS subquery)", () => {
+    const filters = buildFindStoresFilters(
+      query({ attributeSlugs: ["free-parking", "free-parking", "mens-department"] }),
+      null,
+      now,
+    );
+    expect(filters.requiredAttributeSlugs).toEqual(["free-parking", "mens-department"]);
+  });
+
   it("applies the default radius when a center is resolved", () => {
     const filters = buildFindStoresFilters(query({}), columbus, now);
     expect(filters.near).toEqual({ ...columbus, radiusMeters: 25_000 });

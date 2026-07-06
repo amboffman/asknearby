@@ -26,7 +26,8 @@ export function buildFindStoresFilters(
   const filters: FindStoresFilters = {};
 
   if (query.attributeSlugs.length > 0) {
-    filters.requiredAttributeSlugs = [...query.attributeSlugs];
+    // Dedupe: each slug becomes its own EXISTS subquery in lib/db.
+    filters.requiredAttributeSlugs = [...new Set(query.attributeSlugs)];
   }
   if (center) {
     const radiusKm = clamp(query.radiusKm ?? RADIUS_KM.default, RADIUS_KM.min, RADIUS_KM.max);

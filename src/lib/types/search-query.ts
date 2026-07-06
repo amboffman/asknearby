@@ -11,6 +11,7 @@ export const geoIntentSchema = z.discriminatedUnion("kind", [
       placeName: z
         .string()
         .min(1)
+        .max(300)
         .describe(
           'The place the user wants to search near, verbatim-ish (e.g. "Columbus", "downtown Chicago"). Do not invent one.',
         ),
@@ -55,7 +56,13 @@ const baseSearchQueryShape = {
  * SearchQuery values anywhere in the app.
  */
 export const searchQuerySchema = z.object({
-  attributeSlugs: z.array(z.string()).default([]).describe("Attributes the stores must ALL have."),
+  // Caps size public route bodies too (ADR-004): each slug becomes a
+  // correlated EXISTS subquery, so an unbounded array is a DoS vector.
+  attributeSlugs: z
+    .array(z.string().min(1).max(64))
+    .max(20)
+    .default([])
+    .describe("Attributes the stores must ALL have."),
   ...baseSearchQueryShape,
 });
 
@@ -78,6 +85,7 @@ export function buildSearchQueryToolSchema(catalogSlugs: readonly string[]) {
   return z.object({
     attributeSlugs: z
       .array(z.enum([first, ...rest]))
+      .max(20)
       .default([])
       .describe(
         "Attributes the stores must ALL have. Only include attributes the user actually asked for.",
@@ -85,6 +93,7 @@ export function buildSearchQueryToolSchema(catalogSlugs: readonly string[]) {
     placeName: z
       .string()
       .min(1)
+      .max(300)
       .optional()
       .describe(
         'Place the user wants to search near, verbatim-ish (e.g. "Columbus"). Omit if none; never invent one.',

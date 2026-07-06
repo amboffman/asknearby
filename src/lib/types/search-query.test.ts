@@ -43,6 +43,23 @@ describe("searchQuerySchema", () => {
     expect(searchQuerySchema.safeParse({ radiusKm: 101 }).success).toBe(false);
     expect(searchQuerySchema.parse({ radiusKm: 5 }).radiusKm).toBe(5);
   });
+
+  it("caps attribute slug count and length (each slug is an EXISTS subquery)", () => {
+    expect(searchQuerySchema.safeParse({ attributeSlugs: Array(21).fill("a") }).success).toBe(
+      false,
+    );
+    expect(searchQuerySchema.safeParse({ attributeSlugs: ["a".repeat(65)] }).success).toBe(false);
+    expect(searchQuerySchema.safeParse({ attributeSlugs: [""] }).success).toBe(false);
+    expect(searchQuerySchema.parse({ attributeSlugs: Array(20).fill("a") }).attributeSlugs) //
+      .toHaveLength(20);
+  });
+
+  it("caps placeName length (it is forwarded into the geocoder URL)", () => {
+    const result = searchQuerySchema.safeParse({
+      geo: { kind: "place", placeName: "x".repeat(301) },
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("buildSearchQueryToolSchema", () => {
