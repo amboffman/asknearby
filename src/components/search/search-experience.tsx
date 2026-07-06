@@ -360,17 +360,18 @@ export function SearchExperience({
         </div>
       </header>
 
-      {/* Mobile: one pane at a time. Desktop shows both, so this bar hides. */}
+      {/* Mobile: one pane at a time. Desktop shows both, so this bar hides.
+          Plain toggle buttons, not role="tab": the full ARIA tabs contract
+          (tabpanels, roving tabindex, arrow keys) isn't implemented here. */}
       <div
-        role="tablist"
         aria-label="Results view"
         className="flex gap-1 border-b border-neutral-200 bg-white p-1 md:hidden"
       >
         {(["list", "map"] as const).map((view) => (
           <button
             key={view}
-            role="tab"
-            aria-selected={mobileView === view}
+            type="button"
+            aria-pressed={mobileView === view}
             onClick={() => setMobileView(view)}
             className={`flex-1 rounded-full py-1.5 text-sm font-semibold capitalize transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-600 ${
               mobileView === view ? "bg-cedar-800 text-white" : "text-neutral-500"

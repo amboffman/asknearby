@@ -111,16 +111,28 @@ export function MapLibreStoreMap({
             longitude={marker.longitude}
             latitude={marker.latitude}
             anchor="bottom"
-            onClick={() => onMarkerClick(marker.id)}
           >
-            <div
+            {/* A real button so keyboard users can focus and activate pins,
+                matching the natively-focusable Google AdvancedMarkers. */}
+            <button
+              type="button"
               title={marker.name}
-              style={{ cursor: "pointer" }}
+              aria-label={marker.name}
+              onClick={() => onMarkerClick(marker.id)}
               onMouseEnter={() => onMarkerHoverChange(marker.id)}
               onMouseLeave={() => onMarkerHoverChange(null)}
+              onFocus={() => onMarkerHoverChange(marker.id)}
+              onBlur={() => onMarkerHoverChange(null)}
+              style={{
+                display: "block",
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+              }}
             >
               <PinGlyph active={activeIds.has(marker.id)} ordinal={marker.ordinal} />
-            </div>
+            </button>
           </Marker>
         ))}
       </Map>
