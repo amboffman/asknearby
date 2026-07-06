@@ -1,6 +1,6 @@
 import { SearchExperience, type StackInfo } from "@/components/search/search-experience";
 import { DEFAULT_MODEL_IDS } from "@/lib/ai/provider";
-import { findStores, getDb } from "@/lib/db";
+import { findStores, getDb, STORE_RESULT_LIMIT } from "@/lib/db";
 import { type StoreSearchResult } from "@/lib/types/store";
 
 // Browse mode reads the live store list per request (75 rows, indexed) —
@@ -20,7 +20,9 @@ function resolveStackInfo(): StackInfo {
 export default async function Home() {
   let initialStores: StoreSearchResult[] = [];
   try {
-    initialStores = await findStores(getDb(), { limit: 100 });
+    // Same limit as the search path, so clearing every chip after a search
+    // can never show fewer stores than this initial browse view.
+    initialStores = await findStores(getDb(), { limit: STORE_RESULT_LIMIT });
   } catch {
     // No reachable database (e.g. a CI build): browse mode starts empty
     // and the search flow reports its own errors.

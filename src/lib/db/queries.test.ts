@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createDb } from "./client";
-import { buildFindStoresQuery } from "./queries";
+import { buildFindStoresQuery, STORE_RESULT_LIMIT } from "./queries";
 
 const db = createDb("postgres://unit-test@localhost:5432/never-connects");
 
@@ -63,8 +63,8 @@ describe("buildFindStoresQuery", () => {
     expect(params).toContain(openAt.toISOString());
   });
 
-  it("applies a default limit and honors an explicit one", () => {
-    expect(buildFindStoresQuery(db, {}).toSQL().params).toContain(50);
+  it("applies the shared default limit and honors an explicit one", () => {
+    expect(buildFindStoresQuery(db, {}).toSQL().params).toContain(STORE_RESULT_LIMIT);
     expect(buildFindStoresQuery(db, { limit: 5 }).toSQL().params).toContain(5);
   });
 

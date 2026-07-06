@@ -2,6 +2,7 @@
 // (AGENTS.md boundary: no AI, no HTTP; fully unit-testable). The only
 // async dependency is the GeocodingPort, injected by the caller.
 import {
+  countStores,
   countStoresPerAttribute,
   type Db,
   type FindStoresFilters,
@@ -101,10 +102,12 @@ export async function diagnoseNoResults(
 ): Promise<NoResultsDiagnosis> {
   const counts = await countStoresPerAttribute(db, query.attributeSlugs);
   const nonGeoFilters = buildFindStoresFilters(query, null, now);
-  const anywhere = await findStores(db, { ...nonGeoFilters, limit: 100 });
+  // COUNT(*), not a capped fetch: the true chain-wide number even when it
+  // exceeds the result limit.
+  const matchesIgnoringLocation = await countStores(db, nonGeoFilters);
 
   let nearestDistanceMeters: number | null = null;
-  if (center && anywhere.length > 0) {
+  if (center && matchesIgnoringLocation > 0) {
     // `near` without radiusMeters sorts by distance without filtering.
     const [nearest] = await findStores(db, {
       ...nonGeoFilters,
@@ -119,7 +122,7 @@ export async function diagnoseNoResults(
       slug,
       storeCount: counts[slug] ?? 0,
     })),
-    matchesIgnoringLocation: anywhere.length,
+    matchesIgnoringLocation,
     nearestDistanceMeters,
   };
 }

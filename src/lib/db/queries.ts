@@ -46,7 +46,12 @@ export class UnknownAttributeError extends Error {
   }
 }
 
-const DEFAULT_LIMIT = 50;
+/**
+ * Shared by search and browse mode so removing every chip can never show
+ * fewer stores than the initial browse view. Must stay above the dataset
+ * size (75 seeded stores) or chain-wide searches silently truncate.
+ */
+export const STORE_RESULT_LIMIT = 100;
 
 const storeSelection = {
   id: stores.id,
@@ -66,12 +71,9 @@ function geographyPoint(longitude: number, latitude: number): SQL {
   return sql`ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography`;
 }
 
-/**
- * Builds (without executing) the store search query, so tests can assert
- * the generated SQL without a live database.
- */
-export function buildFindStoresQuery(db: Db, filters: FindStoresFilters) {
-  const { near, requiredAttributeSlugs = [], openAt, limit = DEFAULT_LIMIT } = filters;
+/** The WHERE conditions shared by the search query and its COUNT twin. */
+function buildStoreConditions(db: Db, filters: FindStoresFilters): SQL[] {
+  const { near, requiredAttributeSlugs = [], openAt } = filters;
 
   const conditions: SQL[] = [];
   if (openAt) {
@@ -114,6 +116,17 @@ export function buildFindStoresQuery(db: Db, filters: FindStoresFilters) {
     );
   }
 
+  return conditions;
+}
+
+/**
+ * Builds (without executing) the store search query, so tests can assert
+ * the generated SQL without a live database.
+ */
+export function buildFindStoresQuery(db: Db, filters: FindStoresFilters) {
+  const { near, limit = STORE_RESULT_LIMIT } = filters;
+  const conditions = buildStoreConditions(db, filters);
+
   const distanceMeters = near
     ? sql<number>`ST_Distance(${stores.location}, ${geographyPoint(near.longitude, near.latitude)})`.mapWith(
         Number,
@@ -149,6 +162,20 @@ export async function findStores(
     ...row,
     distanceMeters: row.distanceMeters === null ? null : Number(row.distanceMeters),
   }));
+}
+
+/**
+ * COUNT(*) twin of findStores — exact matches for the same filters with
+ * no LIMIT, so no-results diagnosis reports true chain-wide numbers even
+ * when they exceed STORE_RESULT_LIMIT.
+ */
+export async function countStores(db: Db, filters: FindStoresFilters = {}): Promise<number> {
+  const conditions = buildStoreConditions(db, filters);
+  const rows = await db
+    .select({ total: sql<number>`count(*)`.mapWith(Number) })
+    .from(stores)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  return rows[0]?.total ?? 0;
 }
 
 /**
@@ -257,10 +284,14 @@ export async function incrementUsageCounter(
   ttlSeconds: number,
 ): Promise<number> {
   if (Math.random() < 0.02) {
-    void db
-      .delete(usageCounters)
-      .where(sql`${usageCounters.expiresAt} < now()`)
-      .catch(() => {});
+    // Awaited: a serverless runtime freezes the instance once the response
+    // is sent, so a fire-and-forget DELETE would usually be killed mid-
+    // flight and the table would grow without bound. Best-effort otherwise.
+    try {
+      await db.delete(usageCounters).where(sql`${usageCounters.expiresAt} < now()`);
+    } catch {
+      // The increment must not fail because sweeping did.
+    }
   }
   const rows = await db
     .insert(usageCounters)
