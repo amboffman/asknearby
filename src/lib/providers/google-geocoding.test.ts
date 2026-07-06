@@ -63,6 +63,31 @@ describe("createGoogleGeocoder", () => {
     await expect(geocoder2.geocode("Nowhereville")).resolves.toBeNull();
   });
 
+  it("passes an abort signal so a hung upstream can't stall the request", async () => {
+    const { fetchFn, calls } = stubFetch(200, columbusFixture);
+    const geocoder = createGoogleGeocoder({ apiKey: "test-key", fetchFn });
+
+    await geocoder.geocode("Columbus");
+
+    expect(calls[0]!.init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("rejects once the timeout elapses, letting the gazetteer fallback run", async () => {
+    // A fetch that never resolves on its own but honors the abort signal,
+    // like a blackholed upstream would.
+    const hangingFetch = ((_url: string | URL | Request, init?: RequestInit) =>
+      new Promise((_, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+      })) as typeof fetch;
+    const geocoder = createGoogleGeocoder({
+      apiKey: "test-key",
+      fetchFn: hangingFetch,
+      timeoutMs: 10,
+    });
+
+    await expect(geocoder.geocode("Columbus")).rejects.toThrow();
+  });
+
   it("throws GeocodingRequestError with the API's message on HTTP errors", async () => {
     const { fetchFn } = stubFetch(403, {
       error: { message: "API key not authorized", status: "PERMISSION_DENIED" },

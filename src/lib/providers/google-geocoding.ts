@@ -23,6 +23,12 @@ export interface GoogleGeocoderOptions {
   regionCode?: string;
   /** Injected for fixture tests; defaults to global fetch. */
   fetchFn?: typeof fetch;
+  /**
+   * Abort the request after this long. Without it a hung upstream holds
+   * the serverless invocation to the platform limit — and the gazetteer
+   * fallback (which only fires on rejection) never gets its turn.
+   */
+  timeoutMs?: number;
 }
 
 interface GeocodeV4Response {
@@ -33,12 +39,13 @@ interface GeocodeV4Response {
 }
 
 export function createGoogleGeocoder(options: GoogleGeocoderOptions): GeocodingPort {
-  const { apiKey, regionCode = "US", fetchFn = fetch } = options;
+  const { apiKey, regionCode = "US", fetchFn = fetch, timeoutMs = 5_000 } = options;
 
   return {
     async geocode(placeName: string): Promise<Coordinates | null> {
       const url = `${ENDPOINT}/${encodeURIComponent(placeName)}?regionCode=${encodeURIComponent(regionCode)}`;
       const response = await fetchFn(url, {
+        signal: AbortSignal.timeout(timeoutMs),
         headers: {
           "X-Goog-Api-Key": apiKey,
           // Only the coordinates are needed; keeps responses tiny.
