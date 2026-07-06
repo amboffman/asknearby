@@ -5,7 +5,7 @@
 // SDK call, so it lives outside the vendor seam.
 import { type AttributeCategory, type StoreDetails } from "@/lib/types/store";
 
-import { CATEGORY_LABELS, DAY_NAMES, formatTime, openStatus } from "./format";
+import { CATEGORY_LABELS, DAY_NAMES, formatTime, localDayAndTime, openStatus } from "./format";
 
 const CATEGORY_ORDER: AttributeCategory[] = ["department", "service", "amenity", "parking"];
 
@@ -16,6 +16,10 @@ export function StoreDetailPanel({
   details: StoreDetails | null;
   onBack: () => void;
 }) {
+  // The store's local weekday, not the viewer's: a viewer a timezone ahead
+  // would otherwise see tomorrow's row flagged "Today" while the OpenBadge
+  // (store-local) still reports today's status.
+  const todayIndex = details === null ? -1 : localDayAndTime(new Date(), details.timezone).day;
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-neutral-200 px-4 py-2.5">
@@ -59,7 +63,7 @@ export function StoreDetailPanel({
               <tbody>
                 {DAY_NAMES.map((day, dayOfWeek) => {
                   const entry = details.hours.find((h) => h.dayOfWeek === dayOfWeek);
-                  const today = new Date().getDay() === dayOfWeek;
+                  const today = todayIndex === dayOfWeek;
                   return (
                     <tr key={day} className={today ? "font-semibold text-cedar-900" : ""}>
                       <td className="py-0.5 pr-4 text-neutral-600">

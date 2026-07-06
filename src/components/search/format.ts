@@ -56,15 +56,28 @@ export interface OpenStatus {
   detail: string | null;
 }
 
+// Intl.DateTimeFormat construction is expensive and openStatus runs per
+// list row per render (hover re-renders every row), so cache per timezone.
+const dayTimeFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function dayTimeFormatter(timezone: string): Intl.DateTimeFormat {
+  let formatter = dayTimeFormatters.get(timezone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    dayTimeFormatters.set(timezone, formatter);
+  }
+  return formatter;
+}
+
 /** The instant rendered as the store's local weekday index and "HH:MM". */
-function localDayAndTime(now: Date, timezone: string): { day: number; hhmm: string } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(now);
+export function localDayAndTime(now: Date, timezone: string): { day: number; hhmm: string } {
+  const parts = dayTimeFormatter(timezone).formatToParts(now);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return {
     day: DAY_ABBREV.indexOf(get("weekday") as (typeof DAY_ABBREV)[number]),

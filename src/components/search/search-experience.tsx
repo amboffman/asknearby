@@ -57,6 +57,11 @@ export function SearchExperience({
   const rowRefs = useRef(new Map<number, HTMLLIElement>());
   const detailCache = useRef(new Map<number, StoreDetails>());
   const selectedIdRef = useRef<number | null>(null);
+  // Race guards for postSearch: only the latest request may apply state,
+  // and the submit gate reads a ref (state is stale within a frame).
+  const requestSeqRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const pendingRef = useRef(false);
 
   // "/" focuses the search box; Escape closes the detail slide-over.
   useEffect(() => {
@@ -102,6 +107,11 @@ export function SearchExperience({
   }
 
   async function postSearch(path: string, body: unknown) {
+    const seq = ++requestSeqRef.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    pendingRef.current = true;
     setPending(true);
     setError(null);
     const startedAt = performance.now();
@@ -110,19 +120,35 @@ export function SearchExperience({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
-      const outcomeBody = (await response.json()) as SearchOutcome & { error?: string };
-      if (!response.ok) throw new Error(outcomeBody.error ?? "Search failed.");
+      // ok-check before trusting the body: a gateway 502/504 returns HTML,
+      // and its JSON parse error must not surface as the user-facing message.
+      let outcomeBody: (SearchOutcome & { error?: string }) | null = null;
+      try {
+        outcomeBody = (await response.json()) as SearchOutcome & { error?: string };
+      } catch {
+        outcomeBody = null;
+      }
+      if (!response.ok || outcomeBody === null) {
+        throw new Error(outcomeBody?.error ?? `Search failed (HTTP ${response.status}).`);
+      }
+      if (seq !== requestSeqRef.current) return null; // superseded by a newer search
       setElapsedMs(Math.round(performance.now() - startedAt));
       setOutcome(outcomeBody);
       setHighlightedId(null);
       closeDetails();
       return outcomeBody;
     } catch (err) {
+      // An aborted request was superseded; its error belongs to nobody.
+      if (seq !== requestSeqRef.current || controller.signal.aborted) return null;
       setError(err instanceof Error ? err.message : "Search failed.");
       return null;
     } finally {
-      setPending(false);
+      if (seq === requestSeqRef.current) {
+        pendingRef.current = false;
+        setPending(false);
+      }
     }
   }
 
@@ -159,7 +185,9 @@ export function SearchExperience({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (sentence.trim() && !pending) void runSearch(sentence.trim());
+    // pendingRef, not pending: two Enter presses in the same frame both see
+    // the stale state value, and each duplicate is a paid model call.
+    if (sentence.trim() && !pendingRef.current) void runSearch(sentence.trim());
   }
 
   /** Shared by row clicks and pin clicks: select + open the slide-over. */
@@ -167,9 +195,16 @@ export function SearchExperience({
     setSelectedId(id);
     selectedIdRef.current = id;
     setMobileView("list"); // the slide-over lives in the list pane
-    rowRefs.current.get(id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     void loadDetails(id);
   }
+
+  // Scroll the selected row into view AFTER render: on mobile a pin tap
+  // fires while the list pane is still display:none, where an immediate
+  // scrollIntoView is a no-op.
+  useEffect(() => {
+    if (selectedId === null) return;
+    rowRefs.current.get(selectedId)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedId]);
 
   function closeDetails() {
     setSelectedId(null);
