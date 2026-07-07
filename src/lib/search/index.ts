@@ -8,6 +8,7 @@ import {
   type FindStoresFilters,
   findStores,
   listHoursForStores,
+  STORE_RESULT_LIMIT,
 } from "@/lib/db";
 import { type GeocodingPort } from "@/lib/providers/geocoding";
 import { RADIUS_KM, type SearchQuery } from "@/lib/types/search-query";
@@ -91,6 +92,11 @@ export interface SearchOutcome {
   unresolvedPlaceName?: string;
   /** Present only when zero stores matched: why, and what's closest. */
   noResults?: NoResultsDiagnosis;
+  /**
+   * Set when more stores matched than STORE_RESULT_LIMIT allows in one
+   * response — the UI must not present the list as exhaustive.
+   */
+  truncated?: boolean;
 }
 
 /** Explain an empty result: which filters bite, and what's nearest. */
@@ -157,9 +163,14 @@ export async function searchStores(
   const now = (deps.now ?? (() => new Date()))();
   const { center, unresolvedPlaceName } = await resolveCenter(query, deps.geocoder);
   const filters = buildFindStoresFilters(query, center, now);
-  const stores = await findStores(db, filters);
+  // Fetch one past the limit: an exactly-full page and a truncated one are
+  // otherwise indistinguishable.
+  const fetched = await findStores(db, { ...filters, limit: STORE_RESULT_LIMIT + 1 });
+  const truncated = fetched.length > STORE_RESULT_LIMIT;
+  const stores = truncated ? fetched.slice(0, STORE_RESULT_LIMIT) : fetched;
 
   const outcome: SearchOutcome = { query, stores };
+  if (truncated) outcome.truncated = true;
   if (center) outcome.center = center;
   if (unresolvedPlaceName) outcome.unresolvedPlaceName = unresolvedPlaceName;
   if (stores.length === 0) {

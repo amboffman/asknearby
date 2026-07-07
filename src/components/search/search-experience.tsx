@@ -393,7 +393,14 @@ export function SearchExperience({
             {outcome && outcome.stores.length > 0 && (
               <div className="flex items-baseline justify-between border-b border-neutral-100 px-4 py-2.5">
                 <p aria-live="polite" className="text-sm font-semibold">
-                  {outcome.stores.length} store{outcome.stores.length === 1 ? "" : "s"}
+                  {outcome.stores.length}
+                  {outcome.truncated ? "+" : ""} store{outcome.stores.length === 1 ? "" : "s"}
+                  {outcome.truncated && (
+                    <span className="font-normal text-neutral-500">
+                      {" "}
+                      · first {outcome.stores.length} shown
+                    </span>
+                  )}
                 </p>
                 <p className="text-xs text-neutral-500">
                   {outcome.stores[0]?.distanceMeters !== null ? "Nearest first" : "A to Z"}
