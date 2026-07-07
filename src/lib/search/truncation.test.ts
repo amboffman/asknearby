@@ -44,9 +44,7 @@ beforeEach(() => {
 
 describe("searchStores truncation", () => {
   it("probes limit+1, slices to the limit, and sets the flag on overflow", async () => {
-    mockedFindStores.mockResolvedValueOnce(
-      Array.from({ length: 101 }, (_, i) => fakeStore(i + 1)),
-    );
+    mockedFindStores.mockResolvedValueOnce(Array.from({ length: 101 }, (_, i) => fakeStore(i + 1)));
 
     const outcome = await searchStores(db, searchQuerySchema.parse({}), deps);
 
