@@ -31,10 +31,13 @@ function FitToMarkers({ markers }: { markers: StoreMapMarker[] }) {
       map.flyTo({ center: [box.west, box.south], zoom: 13 });
       return;
     }
+    // east < west encodes an antimeridian crossing; MapLibre wants the
+    // east edge unwrapped past +180 instead.
+    const east = box.east < box.west ? box.east + 360 : box.east;
     map.fitBounds(
       [
         [box.west, box.south],
-        [box.east, box.north],
+        [east, box.north],
       ],
       { padding: 48 },
     );

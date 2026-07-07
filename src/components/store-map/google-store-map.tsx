@@ -29,6 +29,8 @@ function FitToMarkers({ markers }: { markers: StoreMapMarker[] }) {
       map.setZoom(13);
       return;
     }
+    // LatLngBounds(sw, ne) natively reads west > east as an antimeridian
+    // crossing, matching boundsOf's east < west encoding.
     map.fitBounds(
       new google.maps.LatLngBounds(
         { lat: box.south, lng: box.west },
