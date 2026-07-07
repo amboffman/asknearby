@@ -22,6 +22,13 @@
       "when": 1783197546245,
       "tag": "0002_usage-counters",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783383175966,
+      "tag": "0003_store-hours-check",
+      "breakpoints": true
     }
   ]
 }

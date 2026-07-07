@@ -67,6 +67,10 @@ export const storeHours = pgTable(
   (t) => [
     primaryKey({ columns: [t.storeId, t.dayOfWeek] }),
     check("store_hours_day_of_week_range", sql`day_of_week BETWEEN 0 AND 6`),
+    // Overnight spans (closes <= opens) are unrepresentable by the open-now
+    // predicate and openStatus display logic; enforce the assumption here
+    // so bad rows fail loudly instead of reading as permanently closed.
+    check("store_hours_opens_before_closes", sql`opens_at < closes_at`),
   ],
 );
 

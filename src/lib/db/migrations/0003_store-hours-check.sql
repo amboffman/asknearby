@@ -1,0 +1,1 @@
+ALTER TABLE "store_hours" ADD CONSTRAINT "store_hours_opens_before_closes" CHECK (opens_at < closes_at);
