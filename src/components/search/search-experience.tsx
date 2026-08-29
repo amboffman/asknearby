@@ -321,7 +321,7 @@ export function SearchExperience({
                   strokeLinecap="round"
                 />
               </svg>
-              <span className="hidden sm:inline">{locating ? "Locating…" : "Near me"}</span>
+              <span>{locating ? "Locating…" : "Near me"}</span>
             </button>
             <button
               type="submit"
@@ -360,6 +360,13 @@ export function SearchExperience({
             />
           )}
 
+          {/* Armed-state explainer: on mobile the map (and its dot) may be
+              on the hidden tab, so the words carry the feedback. */}
+          {userLocation && (
+            <p aria-live="polite" className="text-sm text-cedar-200">
+              Using your location. A search that names no place will look near you.
+            </p>
+          )}
           {error && <p className="text-sm text-red-300">{error}</p>}
           {outcome?.unresolvedPlaceName && (
             <p className="text-sm text-amber-300">
@@ -392,7 +399,9 @@ export function SearchExperience({
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(360px,2fr)_3fr]">
+      {/* relative: the query-JSON card floats over this container, so it
+          stays visible on whichever mobile tab is active. */}
+      <div className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(360px,2fr)_3fr]">
         <section
           aria-label="Store results"
           className={`relative min-h-0 overflow-hidden border-r border-neutral-200 bg-white ${
@@ -503,28 +512,29 @@ export function SearchExperience({
             onMarkerClick={selectStore}
             onMarkerHoverChange={setHighlightedId}
           />
-          {showJson && outcome && (
-            <div className="absolute right-3 top-3 z-10 w-80 max-w-[calc(100%-1.5rem)] rounded-lg bg-cedar-950/95 p-3 text-cedar-100 shadow-xl">
-              <div className="flex items-center justify-between pb-1">
-                <span className="font-mono text-[11px] font-semibold">SearchQuery</span>
-                <button
-                  type="button"
-                  onClick={() => setShowJson(false)}
-                  aria-label="Hide query JSON"
-                  className="px-1 text-cedar-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-500"
-                >
-                  ✕
-                </button>
-              </div>
-              <pre className="max-h-64 overflow-auto font-mono text-[11px] leading-relaxed">
-                {JSON.stringify(outcome.query, null, 2)}
-              </pre>
-              <p className="border-t border-cedar-800 pt-2 font-mono text-[10px] text-cedar-400">
-                one forced tool call: the model translates, the database answers
-              </p>
-            </div>
-          )}
         </div>
+
+        {showJson && outcome && (
+          <div className="absolute right-3 top-3 z-10 w-80 max-w-[calc(100%-1.5rem)] rounded-lg bg-cedar-950/95 p-3 text-cedar-100 shadow-xl">
+            <div className="flex items-center justify-between pb-1">
+              <span className="font-mono text-[11px] font-semibold">SearchQuery</span>
+              <button
+                type="button"
+                onClick={() => setShowJson(false)}
+                aria-label="Hide query JSON"
+                className="px-1 text-cedar-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-500"
+              >
+                ✕
+              </button>
+            </div>
+            <pre className="max-h-64 overflow-auto font-mono text-[11px] leading-relaxed">
+              {JSON.stringify(outcome.query, null, 2)}
+            </pre>
+            <p className="border-t border-cedar-800 pt-2 font-mono text-[10px] text-cedar-400">
+              one forced tool call: the model translates, the database answers
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Plain-language stack strip: each label says what the piece does,
