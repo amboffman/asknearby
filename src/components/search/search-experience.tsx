@@ -7,13 +7,13 @@
 // detail slide-over.
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
-import { StoreMap, type StoreMapMarker } from "@/components/store-map";
+import { StoreMap, type StoreMapMarker, type StoreMapSearchArea } from "@/components/store-map";
 import { type SearchOutcome } from "@/lib/search";
 import { type Coordinates } from "@/lib/types/geo";
 import { type SearchQuery } from "@/lib/types/search-query";
 import { type StoreDetails, type StoreSearchResult } from "@/lib/types/store";
 
-import { formatDistanceMiles, openStatus } from "./format";
+import { DEFAULT_RADIUS_KM, formatDistanceMiles, openStatus } from "./format";
 import { NoResults } from "./no-results";
 import { QueryChips } from "./query-chips";
 import { StoreDetailPanel } from "./store-detail-panel";
@@ -85,7 +85,7 @@ export function SearchExperience({
       return;
     }
     if (!("geolocation" in navigator)) {
-      setError("Location isn't available — name a place instead (e.g. “near Columbus”).");
+      setError("Location isn't available here. Name a place instead (e.g. “near Columbus”).");
       return;
     }
     setLocating(true);
@@ -100,7 +100,7 @@ export function SearchExperience({
       },
       () => {
         setLocating(false);
-        setError("Couldn't get your location — name a place instead (e.g. “near Columbus”).");
+        setError("Couldn't get your location. Name a place instead (e.g. “near Columbus”).");
       },
       { timeout: 8_000, maximumAge: 300_000 },
     );
@@ -229,13 +229,23 @@ export function SearchExperience({
     } catch {
       if (selectedIdRef.current === id) {
         closeDetails();
-        setError("Couldn't load store details — try again.");
+        setError("Couldn't load store details. Try again.");
       }
     }
   }
 
   const stores = outcome?.stores ?? initialStores;
   const browsing = outcome === null;
+  // The map's search context (ADR-006): where the search looked, at what
+  // radius, so a zero-result search still frames the searched area
+  // instead of idling over the previous view.
+  const searchArea: StoreMapSearchArea | null = outcome?.center
+    ? {
+        center: outcome.center,
+        radiusKm: outcome.query.radiusKm ?? DEFAULT_RADIUS_KM,
+        label: placeLabel && placeLabel !== "you" ? placeLabel : "your location",
+      }
+    : null;
   const markers: StoreMapMarker[] = stores.map((store, index) => ({
     id: store.id,
     slug: store.slug,
@@ -281,7 +291,7 @@ export function SearchExperience({
               ref={inputRef}
               value={sentence}
               onChange={(e) => setSentence(e.target.value)}
-              placeholder="Describe what you need — “alterations, open now, near me”"
+              placeholder="Describe what you need, like “alterations, open now, near me”"
               aria-label="Describe what you're looking for"
               className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-neutral-400"
               maxLength={300}
@@ -353,8 +363,8 @@ export function SearchExperience({
           {error && <p className="text-sm text-red-300">{error}</p>}
           {outcome?.unresolvedPlaceName && (
             <p className="text-sm text-amber-300">
-              Couldn&apos;t place &quot;{outcome.unresolvedPlaceName}&quot; — showing matches
-              everywhere.
+              Couldn&apos;t find &quot;{outcome.unresolvedPlaceName}&quot; on the map, so these
+              matches come from everywhere.
             </p>
           )}
         </div>
@@ -419,7 +429,7 @@ export function SearchExperience({
                   }}
                 />
               ) : outcome.stores.length === 0 ? (
-                <NoResults outcome={outcome} />
+                <NoResults outcome={outcome} placeLabel={placeLabel} />
               ) : (
                 <ul>
                   {outcome.stores.map((store, index) => {
@@ -486,6 +496,8 @@ export function SearchExperience({
           <StoreMap
             className="h-full w-full"
             markers={markers}
+            searchArea={searchArea}
+            userLocation={userLocation}
             highlightedId={highlightedId}
             selectedId={selectedId}
             onMarkerClick={selectStore}
@@ -508,24 +520,27 @@ export function SearchExperience({
                 {JSON.stringify(outcome.query, null, 2)}
               </pre>
               <p className="border-t border-cedar-800 pt-2 font-mono text-[10px] text-cedar-400">
-                one forced tool call — the model translates, the database answers
+                one forced tool call: the model translates, the database answers
               </p>
             </div>
           )}
         </div>
       </div>
 
+      {/* Plain-language stack strip: each label says what the piece does,
+          the value names the real tech (the pitch audience reads both). */}
       <footer className="hidden items-center gap-5 border-t border-neutral-200 bg-white px-4 py-1.5 font-mono text-[11px] text-neutral-500 md:flex">
         <span>
-          NL → <span className="font-semibold text-cedar-800">{stack.modelId}</span> → SearchQuery
+          Understands your sentence:{" "}
+          <span className="font-semibold text-cedar-800">{stack.modelId}</span>
         </span>
         <span>
-          geo: <span className="font-semibold text-cedar-800">PostGIS ST_DWithin</span>
+          Measures store distances: <span className="font-semibold text-cedar-800">PostGIS</span>
         </span>
         <span>
-          map: <span className="font-semibold text-cedar-800">{stack.mapsProvider}</span>
+          Draws the map: <span className="font-semibold text-cedar-800">{stack.mapsProvider}</span>
         </span>
-        <span className="ml-auto text-neutral-400">model &amp; map each swap with one env var</span>
+        <span className="ml-auto text-neutral-400">every piece swaps with one setting</span>
       </footer>
     </div>
   );
@@ -565,7 +580,7 @@ function Welcome({
         Find your nearest Cedar &amp; Main
       </h2>
       <p className="text-sm text-neutral-600">
-        Say it in one sentence — departments, services, parking, hours. The AI translates your words
+        Say it in one sentence: departments, services, parking, hours. The AI translates your words
         into a typed query; the database does the finding.
       </p>
       <div className="flex flex-col items-start gap-2">
@@ -582,7 +597,7 @@ function Welcome({
       </div>
       {storeCount > 0 && (
         <p className="text-xs text-neutral-400">
-          …or just browse — all {storeCount} stores are on the map.
+          …or just browse: all {storeCount} stores are on the map.
         </p>
       )}
     </div>

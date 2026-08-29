@@ -1,12 +1,20 @@
 "use client";
-// Week D no-results handling: say WHICH filter matched nothing instead of
-// a bare empty state (the silent-zero is the locator failure mode ADR-001
-// keeps calling out). Restyled as a designed card (ADR-004).
+// Week D no-results handling: say WHAT the search looked for and WHICH
+// filter matched nothing instead of a bare empty state (the silent-zero
+// is the locator failure mode ADR-001 keeps calling out). Restyled as a
+// designed card (ADR-004).
 import { type SearchOutcome } from "@/lib/search";
 
-import { attributeLabel, formatDistanceMiles } from "./format";
+import { attributeLabel, describeSearch, formatDistanceMiles } from "./format";
 
-export function NoResults({ outcome }: { outcome: SearchOutcome }) {
+export function NoResults({
+  outcome,
+  placeLabel,
+}: {
+  outcome: SearchOutcome;
+  /** Display name for a coordinates-kind geo (mirrors QueryChips). */
+  placeLabel: string | null;
+}) {
   const diagnosis = outcome.noResults;
   const slugs = outcome.query.attributeSlugs;
 
@@ -27,6 +35,14 @@ export function NoResults({ outcome }: { outcome: SearchOutcome }) {
         </span>
         <p className="font-display text-lg font-bold text-cedar-950">No matching stores</p>
 
+        <p className="text-sm text-neutral-700">
+          We looked for{" "}
+          <span className="font-semibold">
+            {describeSearch(outcome.query, placeLabel, outcome.unresolvedPlaceName)}
+          </span>
+          .
+        </p>
+
         {zeroSlugs.length > 0 ? (
           <p className="text-sm text-neutral-600">
             No store in the chain offers:{" "}
@@ -37,11 +53,10 @@ export function NoResults({ outcome }: { outcome: SearchOutcome }) {
           <p className="text-sm text-neutral-600">
             {diagnosis.matchesIgnoringLocation} store
             {diagnosis.matchesIgnoringLocation === 1 ? "" : "s"} match
-            {diagnosis.matchesIgnoringLocation === 1 ? "es" : ""} your filters
+            {diagnosis.matchesIgnoringLocation === 1 ? "es" : ""} your filters elsewhere
             {diagnosis.nearestDistanceMeters !== null && (
               <>
-                {" "}
-                — the nearest is{" "}
+                ; the nearest is{" "}
                 <span className="font-semibold">
                   {formatDistanceMiles(diagnosis.nearestDistanceMeters)} away
                 </span>
@@ -60,12 +75,12 @@ export function NoResults({ outcome }: { outcome: SearchOutcome }) {
         ) : (
           <p className="text-sm text-neutral-600">
             {outcome.query.openNow
-              ? "Stores matching your search are closed right now — try again during opening hours."
+              ? "Stores matching your search are closed right now. Try again during opening hours."
               : "Try different filters or another place."}
           </p>
         )}
         <p className="text-xs text-neutral-400">
-          Tip: remove a chip above to widen the search — it re-runs instantly.
+          Tip: remove a chip above to widen the search. It re-runs instantly.
         </p>
       </div>
     </div>

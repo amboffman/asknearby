@@ -9,8 +9,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Map, Marker, useMap } from "@vis.gl/react-maplibre";
 import { useEffect, useMemo } from "react";
 
-import { boundsOf, markersGeometryKey } from "./geometry";
-import { type StoreMapMarker, type StoreMapProps } from "./types";
+import { cameraKey, planCamera } from "./geometry";
+import { sameSpot, SearchedAreaGlyph, UserLocationGlyph } from "./glyphs";
+import { type StoreMapProps } from "./types";
 
 const STYLE_URL =
   process.env.NEXT_PUBLIC_MAPLIBRE_STYLE_URL ?? "https://tiles.openfreemap.org/styles/liberty";
@@ -18,32 +19,55 @@ const STYLE_URL =
 // Same initial view as the Google implementation.
 const INITIAL_VIEW = { longitude: -85.5, latitude: 40.5, zoom: 5.5 };
 
-/** Same refit policy as the Google implementation: geometry key only. */
-function FitToMarkers({ markers }: { markers: StoreMapMarker[] }) {
+/** Executes the shared camera plan (ADR-006); same policy as Google's. */
+function FitCamera({
+  markers,
+  searchArea,
+  userLocation,
+}: Pick<StoreMapProps, "markers" | "searchArea" | "userLocation">) {
   const { current: map } = useMap();
-  const geometryKey = markersGeometryKey(markers);
+  const sceneKey = cameraKey({ markers, searchArea, userLocation });
 
   useEffect(() => {
     if (!map) return;
-    const box = boundsOf(markers);
-    if (!box) return;
-    if (markers.length === 1) {
-      map.flyTo({ center: [box.west, box.south], zoom: 13 });
-      return;
+    const plan = planCamera({ markers, searchArea, userLocation });
+    if (plan.kind === "none") return;
+
+    const apply = () => {
+      if (plan.kind === "point") {
+        map.flyTo({ center: [plan.center.longitude, plan.center.latitude], zoom: 13 });
+        return;
+      }
+      // east < west encodes an antimeridian crossing; MapLibre wants the
+      // east edge unwrapped past +180 instead.
+      const east = plan.box.east < plan.box.west ? plan.box.east + 360 : plan.box.east;
+      map.fitBounds(
+        [
+          [plan.box.west, plan.box.south],
+          [east, plan.box.north],
+        ],
+        { padding: 48 },
+      );
+    };
+
+    // A hidden pane (the mobile list view) gives the map a zero-size
+    // container, where a fit computes a garbage zoom. Hold the plan until
+    // the container actually has pixels.
+    const container = map.getContainer();
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      const observer = new ResizeObserver(() => {
+        if (container.clientWidth > 0 && container.clientHeight > 0) {
+          observer.disconnect();
+          apply();
+        }
+      });
+      observer.observe(container);
+      return () => observer.disconnect();
     }
-    // east < west encodes an antimeridian crossing; MapLibre wants the
-    // east edge unwrapped past +180 instead.
-    const east = box.east < box.west ? box.east + 360 : box.east;
-    map.fitBounds(
-      [
-        [box.west, box.south],
-        [east, box.north],
-      ],
-      { padding: 48 },
-    );
-    // Keyed on geometry, not the array reference — hover re-renders must
-    // not move the camera.
-  }, [map, geometryKey]);
+    apply();
+    // Keyed on the scene identity, not object references: hover
+    // re-renders must not move the camera.
+  }, [map, sceneKey]);
 
   return null;
 }
@@ -84,6 +108,8 @@ function PinGlyph({ active, ordinal }: { active: boolean; ordinal?: number }) {
 
 export function MapLibreStoreMap({
   markers,
+  searchArea,
+  userLocation,
   highlightedId,
   selectedId,
   onMarkerClick,
@@ -107,7 +133,34 @@ export function MapLibreStoreMap({
         mapStyle={STYLE_URL}
         style={{ width: "100%", height: "100%" }}
       >
-        <FitToMarkers markers={markers} />
+        <FitCamera markers={markers} searchArea={searchArea} userLocation={userLocation} />
+        {/* Context anchors render before store pins so pins paint above. */}
+        {userLocation && (
+          <Marker
+            longitude={userLocation.longitude}
+            latitude={userLocation.latitude}
+            anchor="center"
+          >
+            <div role="img" aria-label="Your location" title="Your location">
+              <UserLocationGlyph />
+            </div>
+          </Marker>
+        )}
+        {searchArea && !(userLocation && sameSpot(searchArea.center, userLocation)) && (
+          <Marker
+            longitude={searchArea.center.longitude}
+            latitude={searchArea.center.latitude}
+            anchor="center"
+          >
+            <div
+              role="img"
+              aria-label={`Searched area: ${searchArea.label}`}
+              title={`Searched here: ${searchArea.label}`}
+            >
+              <SearchedAreaGlyph />
+            </div>
+          </Marker>
+        )}
         {sortedMarkers.map((marker) => (
           <Marker
             key={marker.id}

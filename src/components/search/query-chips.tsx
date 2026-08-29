@@ -4,9 +4,7 @@
 // re-runs the search deterministically — no second model call.
 import { type SearchQuery } from "@/lib/types/search-query";
 
-import { attributeLabel } from "./format";
-
-const MILES_PER_KM = 1 / 1.609344;
+import { attributeLabel, formatRadiusMiles } from "./format";
 
 export function QueryChips({
   query,
@@ -44,9 +42,7 @@ export function QueryChips({
       : query.geo.kind === "coordinates"
         ? (placeLabel ?? "near you")
         : null;
-  const radiusSuffix = query.radiusKm
-    ? ` · ${Math.max(1, Math.round(query.radiusKm * MILES_PER_KM))} mi`
-    : "";
+  const radiusSuffix = query.radiusKm ? ` · ${formatRadiusMiles(query.radiusKm)}` : "";
 
   return (
     <div className="flex flex-wrap items-center gap-2">

@@ -4,8 +4,9 @@
 import { AdvancedMarker, APIProvider, Map, Pin, useMap } from "@vis.gl/react-google-maps";
 import { useEffect, useMemo } from "react";
 
-import { boundsOf, markersGeometryKey } from "./geometry";
-import { type StoreMapMarker, type StoreMapProps } from "./types";
+import { cameraKey, planCamera } from "./geometry";
+import { sameSpot, SearchedAreaGlyph, UserLocationGlyph } from "./glyphs";
+import { type StoreMapProps } from "./types";
 
 // Geographic center of the four seeded metros; shown before any search.
 const INITIAL_CENTER = { lat: 40.5, lng: -85.5 };
@@ -15,38 +16,63 @@ const INITIAL_ZOOM = 6;
 // documented placeholder; set a real Map ID in production.
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID";
 
-/** Refits the viewport when the marker geometry (not hover state) changes. */
-function FitToMarkers({ markers }: { markers: StoreMapMarker[] }) {
+/** Executes the shared camera plan (ADR-006); same policy as MapLibre's. */
+function FitCamera({
+  markers,
+  searchArea,
+  userLocation,
+}: Pick<StoreMapProps, "markers" | "searchArea" | "userLocation">) {
   const map = useMap();
-  const geometryKey = markersGeometryKey(markers);
+  const sceneKey = cameraKey({ markers, searchArea, userLocation });
 
   useEffect(() => {
     if (!map) return;
-    const box = boundsOf(markers);
-    if (!box) return;
-    if (markers.length === 1) {
-      map.setCenter({ lat: box.south, lng: box.west });
-      map.setZoom(13);
-      return;
+    const plan = planCamera({ markers, searchArea, userLocation });
+    if (plan.kind === "none") return;
+
+    const apply = () => {
+      if (plan.kind === "point") {
+        map.setCenter({ lat: plan.center.latitude, lng: plan.center.longitude });
+        map.setZoom(13);
+        return;
+      }
+      // LatLngBounds(sw, ne) natively reads west > east as an antimeridian
+      // crossing, matching boundsOf's east < west encoding.
+      map.fitBounds(
+        new google.maps.LatLngBounds(
+          { lat: plan.box.south, lng: plan.box.west },
+          { lat: plan.box.north, lng: plan.box.east },
+        ),
+        48,
+      );
+    };
+
+    // A hidden pane (the mobile list view) gives the map a zero-size
+    // container, where a fit computes a garbage zoom. Hold the plan until
+    // the container actually has pixels.
+    const container = map.getDiv();
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      const observer = new ResizeObserver(() => {
+        if (container.clientWidth > 0 && container.clientHeight > 0) {
+          observer.disconnect();
+          apply();
+        }
+      });
+      observer.observe(container);
+      return () => observer.disconnect();
     }
-    // LatLngBounds(sw, ne) natively reads west > east as an antimeridian
-    // crossing, matching boundsOf's east < west encoding.
-    map.fitBounds(
-      new google.maps.LatLngBounds(
-        { lat: box.south, lng: box.west },
-        { lat: box.north, lng: box.east },
-      ),
-      48,
-    );
-    // Depends on geometryKey (the marker set's identity), deliberately not
-    // on the markers array reference, so hover re-renders don't refit.
-  }, [map, geometryKey]);
+    apply();
+    // Keyed on the scene identity, not object references: hover
+    // re-renders must not move the camera.
+  }, [map, sceneKey]);
 
   return null;
 }
 
 export function GoogleStoreMap({
   markers,
+  searchArea,
+  userLocation,
   highlightedId,
   selectedId,
   onMarkerClick,
@@ -97,7 +123,32 @@ export function GoogleStoreMap({
           disableDefaultUI={false}
           className="h-full w-full"
         >
-          <FitToMarkers markers={markers} />
+          <FitCamera markers={markers} searchArea={searchArea} userLocation={userLocation} />
+          {/* Context anchors sit at zIndex 0 so store pins paint above.
+              AdvancedMarker anchors content bottom-center; the translateY
+              recenters the circular glyphs onto their coordinates. */}
+          {userLocation && (
+            <AdvancedMarker
+              position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
+              title="Your location"
+              zIndex={0}
+            >
+              <div style={{ transform: "translateY(50%)" }}>
+                <UserLocationGlyph />
+              </div>
+            </AdvancedMarker>
+          )}
+          {searchArea && !(userLocation && sameSpot(searchArea.center, userLocation)) && (
+            <AdvancedMarker
+              position={{ lat: searchArea.center.latitude, lng: searchArea.center.longitude }}
+              title={`Searched here: ${searchArea.label}`}
+              zIndex={0}
+            >
+              <div style={{ transform: "translateY(50%)" }}>
+                <SearchedAreaGlyph />
+              </div>
+            </AdvancedMarker>
+          )}
           {sortedMarkers.map((marker) => {
             const active = activeIds.has(marker.id);
             return (

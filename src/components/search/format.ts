@@ -3,6 +3,7 @@
 // ATTRIBUTE_CATALOG is pure hand-authored data (no SQL, no client), so a
 // display-label lookup may import it without crossing the lib/db boundary.
 import { ATTRIBUTE_CATALOG } from "@/lib/db/seed-data";
+import { type SearchQuery } from "@/lib/types/search-query";
 import { type AttributeCategory, type StoreHoursEntry } from "@/lib/types/store";
 
 export const DAY_NAMES = [
@@ -48,6 +49,58 @@ export function formatDistanceMiles(meters: number): string {
 /** Human label for a catalog slug; unknown slugs degrade to de-slugged text. */
 export function attributeLabel(slug: string): string {
   return ATTRIBUTE_CATALOG.find((a) => a.slug === slug)?.label ?? slug.replace(/-/g, " ");
+}
+
+/**
+ * The server-side default search radius (RADIUS_KM.default in lib/types)
+ * restated as a literal so client bundles never pull lib/types' zod
+ * import; format.test.ts pins the two values together.
+ */
+export const DEFAULT_RADIUS_KM = 25;
+
+/** Kilometers as the whole-mile chip label ("25 km" → "16 mi"). */
+export function formatRadiusMiles(radiusKm: number): string {
+  return `${Math.max(1, Math.round((radiusKm * 1000) / METERS_PER_MILE))} mi`;
+}
+
+/** Prose list join: "a" / "a and b" / "a, b, and c". */
+function joinNatural(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+/**
+ * Restate a SearchQuery as the plain sentence fragment the no-results
+ * card leads with ("stores with free parking, open right now, within
+ * 16 mi of San Diego"), so an empty result names exactly what was asked.
+ *
+ * `placeLabel` is the UI's display name for a coordinates-kind geo (it
+ * survives chip-edit re-runs, where the place name is swapped for raw
+ * coordinates). A query whose place name never geocoded ran without a
+ * location filter, so its location clause is omitted; the caller's
+ * banner explains the fallback.
+ */
+export function describeSearch(
+  query: SearchQuery,
+  placeLabel: string | null,
+  unresolvedPlaceName?: string,
+): string {
+  const parts: string[] = [];
+  if (query.attributeSlugs.length > 0) {
+    parts.push(`with ${joinNatural(query.attributeSlugs.map(attributeLabel))}`);
+  }
+  if (query.openNow) parts.push("open right now");
+
+  const radius = formatRadiusMiles(query.radiusKm ?? DEFAULT_RADIUS_KM);
+  if (query.geo.kind === "place" && !unresolvedPlaceName) {
+    parts.push(`within ${radius} of ${query.geo.placeName}`);
+  } else if (query.geo.kind === "coordinates") {
+    const label = placeLabel && placeLabel !== "you" ? placeLabel : "your location";
+    parts.push(`within ${radius} of ${label}`);
+  }
+
+  return parts.length > 0 ? `stores ${parts.join(", ")}` : "all stores";
 }
 
 export interface OpenStatus {

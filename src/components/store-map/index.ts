@@ -8,4 +8,4 @@ import { MapLibreStoreMap } from "./maplibre-store-map";
 const provider = process.env.NEXT_PUBLIC_MAPS_PROVIDER ?? "google";
 
 export const StoreMap = provider === "maplibre" ? MapLibreStoreMap : GoogleStoreMap;
-export { type StoreMapMarker, type StoreMapProps } from "./types";
+export { type StoreMapMarker, type StoreMapProps, type StoreMapSearchArea } from "./types";
