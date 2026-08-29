@@ -1,7 +1,7 @@
 "use client";
 // The signature moment (ADR-004): the model's SearchQuery rendered as
 // human-readable, removable chips the instant results land. Removing one
-// re-runs the search deterministically — no second model call.
+// re-runs the search deterministically, with no second model call.
 import { type SearchQuery } from "@/lib/types/search-query";
 
 import { attributeLabel, formatRadiusMiles } from "./format";

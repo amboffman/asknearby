@@ -1,4 +1,4 @@
-// Google adapter for GeocodingPort — Geocoding API v4 (v3 /maps/api/geocode
+// Google adapter for GeocodingPort: Geocoding API v4 (v3 /maps/api/geocode
 // is legacy as of 2026). Pure I/O translation per the AGENTS.md boundary.
 import { type Coordinates } from "@/lib/types/geo";
 
@@ -25,7 +25,7 @@ export interface GoogleGeocoderOptions {
   fetchFn?: typeof fetch;
   /**
    * Abort the request after this long. Without it a hung upstream holds
-   * the serverless invocation to the platform limit — and the gazetteer
+   * the serverless invocation to the platform limit, and the gazetteer
    * fallback (which only fires on rejection) never gets its turn.
    */
   timeoutMs?: number;

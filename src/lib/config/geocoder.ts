@@ -9,7 +9,7 @@ import {
 } from "@/lib/providers/geocoding";
 import { createGoogleGeocoder } from "@/lib/providers/google-geocoding";
 
-/** Seeded metro centroids — the offline fallback vocabulary. */
+/** Seeded metro centroids: the offline fallback vocabulary. */
 export function metroGazetteerPlaces(): GazetteerPlace[] {
   return METROS.map((metro) => ({
     name: metro.name,
@@ -39,7 +39,7 @@ function withFallback(primary: GeocodingPort, fallback: GeocodingPort): Geocodin
 
 /**
  * Google when a server key is configured (with the gazetteer as safety
- * net), plain gazetteer otherwise — dev works with zero Google setup.
+ * net), plain gazetteer otherwise, so dev works with zero Google setup.
  */
 export function createAppGeocoder(): GeocodingPort {
   const gazetteer = createGazetteerGeocoder(metroGazetteerPlaces());

@@ -51,7 +51,7 @@ export type CostGuardResult =
     };
 
 /**
- * The per-IP minute window alone — shared by the AI spine and the
+ * The per-IP minute window alone, shared by the AI spine and the
  * deterministic query endpoint (which must not draw down the AI daily
  * budget since it never calls a model).
  */

@@ -36,14 +36,14 @@ async function main() {
 
   if (outcome.unresolvedPlaceName) {
     console.log(
-      `\n⚠ Could not resolve "${outcome.unresolvedPlaceName}" — searched without a location filter.`,
+      `\n⚠ Could not resolve "${outcome.unresolvedPlaceName}"; searched without a location filter.`,
     );
   }
 
   console.log(`\n${outcome.stores.length} matching store(s):`);
   for (const [index, store] of outcome.stores.entries()) {
     const distance =
-      store.distanceMeters === null ? "" : ` — ${(store.distanceMeters / 1000).toFixed(1)} km`;
+      store.distanceMeters === null ? "" : ` (${(store.distanceMeters / 1000).toFixed(1)} km)`;
     console.log(
       `${String(index + 1).padStart(3)}. ${store.name}${distance}\n     ${store.streetAddress}, ${store.city}, ${store.state} ${store.postalCode} · ${store.phone}`,
     );

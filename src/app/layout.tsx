@@ -9,9 +9,9 @@ const sans = Public_Sans({ subsets: ["latin"], variable: "--font-public-sans" })
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
-  title: "Cedar & Main Outfitters — Store Finder",
+  title: "Cedar & Main Outfitters: Store Finder",
   description:
-    "Say what you need in plain language — departments, services, parking, hours — " +
+    "Say what you need in plain language (departments, services, parking, hours) " +
     "and get matching Cedar & Main stores on a map. An AskNearby demo.",
   applicationName: "AskNearby",
 };

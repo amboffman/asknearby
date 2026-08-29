@@ -6,7 +6,7 @@ import { type Attribute } from "@/lib/types/store";
 
 export const BRAND = "Cedar & Main Outfitters";
 
-/** Fixed RNG seed — the whole dataset is a pure function of this value. */
+/** Fixed RNG seed: the whole dataset is a pure function of this value. */
 export const SEED = 20260704;
 
 // The catalog is data, not schema (ADR-001): this list seeds the

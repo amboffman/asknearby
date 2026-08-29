@@ -1,6 +1,6 @@
 // The vendor seam (ADR-003): consumers import StoreMap from here, never
 // from a vendor implementation. NEXT_PUBLIC_MAPS_PROVIDER picks the
-// implementation at build time — the Week F demo is flipping this one
+// implementation at build time: the Week F demo is flipping this one
 // env var and redeploying.
 import { GoogleStoreMap } from "./google-store-map";
 import { MapLibreStoreMap } from "./maplibre-store-map";

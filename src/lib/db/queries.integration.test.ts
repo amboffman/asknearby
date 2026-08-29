@@ -2,7 +2,7 @@
 // Live PostGIS integration tests. They run only when DATABASE_URL is set
 // (author's Supabase project) and are skipped otherwise, so CI and offline
 // runs stay green. NOTE: the suite reseeds the database (destructive by
-// design — the dataset is a deterministic demo fixture).
+// design; the dataset is a deterministic demo fixture).
 import { config } from "dotenv";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -29,7 +29,7 @@ import { applySeed, generateSeedData } from "./seed";
 
 const databaseUrl = process.env.DATABASE_URL;
 
-// Downtown Columbus — the center the flagship demo sentence resolves to.
+// Downtown Columbus, the center the flagship demo sentence resolves to.
 const columbus = { latitude: 39.962, longitude: -83.001 };
 
 describe.skipIf(!databaseUrl)("lib/db against live PostGIS", () => {

@@ -139,7 +139,7 @@ export function localDayAndTime(now: Date, timezone: string): { day: number; hhm
 }
 
 /**
- * Open/closed right now, evaluated in the store's own timezone — the same
+ * Open/closed right now, evaluated in the store's own timezone: the same
  * rule the openNow SQL applies, restated for display ("HH:MM" strings
  * compare correctly as text).
  */

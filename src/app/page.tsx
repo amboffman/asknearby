@@ -3,7 +3,7 @@ import { DEFAULT_MODEL_IDS } from "@/lib/ai/provider";
 import { findStores, getDb, STORE_RESULT_LIMIT } from "@/lib/db";
 import { type StoreSearchResult } from "@/lib/types/store";
 
-// Browse mode reads the live store list per request (75 rows, indexed) —
+// Browse mode reads the live store list per request (75 rows, indexed);
 // static prerendering would bake an empty list into CI builds that have
 // no DATABASE_URL.
 export const dynamic = "force-dynamic";

@@ -1,6 +1,6 @@
 // Golden NL → SearchQuery cases (Week E). Expectations are derived from
 // the seeded attribute catalog; scoring is deterministic (see scorers.ts).
-// NEVER run in CI — each case is a paid model call (pnpm eval).
+// NEVER run in CI: each case is a paid model call (pnpm eval).
 import { type SearchQuery, searchQuerySchema } from "@/lib/types/search-query";
 
 export interface GoldenCase {

@@ -1,4 +1,4 @@
-// Provider registry — the AI_PROVIDER switch (Week E). One place maps a
+// Provider registry: the AI_PROVIDER switch (Week E). One place maps a
 // provider name to an AI SDK LanguageModel; nothing else in the app knows
 // which vendor is behind translateQuery.
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -45,7 +45,7 @@ export function resolveModel(options: { provider?: string; modelId?: string } = 
   const provider = options.provider ?? process.env.AI_PROVIDER ?? "anthropic";
   if (!isProviderId(provider)) {
     throw new Error(
-      `Unknown AI provider "${provider}" — expected one of: ${AI_PROVIDERS.join(", ")}.`,
+      `Unknown AI provider "${provider}". Expected one of: ${AI_PROVIDERS.join(", ")}.`,
     );
   }
   const modelId = options.modelId ?? process.env.AI_MODEL ?? DEFAULT_MODEL_IDS[provider];

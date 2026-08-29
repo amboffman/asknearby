@@ -1,4 +1,4 @@
-// lib/search — pure functions from SearchQuery to typed lib/db calls
+// lib/search: pure functions from SearchQuery to typed lib/db calls
 // (AGENTS.md boundary: no AI, no HTTP; fully unit-testable). The only
 // async dependency is the GeocodingPort, injected by the caller.
 import {
@@ -94,7 +94,7 @@ export interface SearchOutcome {
   noResults?: NoResultsDiagnosis;
   /**
    * Set when more stores matched than STORE_RESULT_LIMIT allows in one
-   * response — the UI must not present the list as exhaustive.
+   * response; the UI must not present the list as exhaustive.
    */
   truncated?: boolean;
 }

@@ -73,7 +73,7 @@ export type SearchQuery = z.infer<typeof searchQuerySchema>;
  * {@link searchQuerySchema}:
  * - `attributeSlugs` is a closed enum of the live catalog, so the model
  *   cannot invent attributes (ADR-001).
- * - geo intent is FLAT optional fields instead of a discriminated union —
+ * - geo intent is FLAT optional fields instead of a discriminated union:
  *   small models reliably fill flat fields but mangle nested unions
  *   (observed live: Haiku emitted `geo` as a bare string).
  * {@link toSearchQuery} lifts the wire shape into the internal contract.

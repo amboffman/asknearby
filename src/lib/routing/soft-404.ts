@@ -1,5 +1,5 @@
 // Soft-404 policy (ADR-005): a URL that would 404 redirects one level up
-// instead, walking toward the nearest live page. Pure functions — the
+// instead, walking toward the nearest live page. Pure functions; the
 // catch-all route in `app/[...slug]` is a thin caller.
 
 /** Extensions start with a letter, so slugs like `v1.2` stay redirectable. */

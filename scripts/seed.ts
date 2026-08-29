@@ -1,4 +1,4 @@
-// pnpm seed — deterministic reseed of the database (truncates first).
+// pnpm seed: deterministic reseed of the database (truncates first).
 import { config } from "dotenv";
 
 config({ path: ".env.local", quiet: true });

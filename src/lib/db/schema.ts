@@ -17,7 +17,7 @@ import {
 // drizzle-orm ships a postgis `geometry` type but not `geography`; radius
 // search wants geography so ST_DWithin works in meters on the spheroid
 // (ADR-001). The column is generated from latitude/longitude, so the ORM
-// never writes or round-trips it — string is fine as the nominal data type.
+// never writes or round-trips it; string is fine as the nominal data type.
 const geographyPoint = customType<{ data: string }>({
   dataType() {
     return "geography(Point,4326)";

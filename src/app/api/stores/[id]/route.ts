@@ -1,4 +1,4 @@
-// GET /api/stores/:id — attributes + weekly hours for the detail panel.
+// GET /api/stores/:id returns attributes + weekly hours for the detail panel.
 import { getDb, getStoreDetails } from "@/lib/db";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {

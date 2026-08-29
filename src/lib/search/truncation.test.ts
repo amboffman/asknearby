@@ -1,4 +1,4 @@
-// searchStores truncation contract (limit+1 probe) with a mocked lib/db —
+// searchStores truncation contract (limit+1 probe) with a mocked lib/db:
 // the live dataset (75 stores) can't exceed STORE_RESULT_LIMIT, so this
 // behavior is only exercisable with a stub.
 import { beforeEach, describe, expect, it, vi } from "vitest";

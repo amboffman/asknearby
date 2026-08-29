@@ -1,4 +1,4 @@
-// Optional catch-all for unknown /api/* paths — including bare /api,
+// Optional catch-all for unknown /api/* paths, including bare /api,
 // which a required [...slug] would miss: API clients get a JSON 404 in
 // the usual error shape, never the soft-404 HTML redirect chain (ADR-005).
 function notFoundJson() {

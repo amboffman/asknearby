@@ -101,7 +101,7 @@ export function GoogleStoreMap({
             <code className="font-mono text-xs text-cedar-800">
               NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
             </code>{" "}
-            to render Google Maps — or flip{" "}
+            to render Google Maps, or flip{" "}
             <code className="font-mono text-xs text-cedar-800">
               NEXT_PUBLIC_MAPS_PROVIDER=maplibre
             </code>{" "}

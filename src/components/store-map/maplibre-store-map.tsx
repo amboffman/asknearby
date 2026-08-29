@@ -1,5 +1,5 @@
 "use client";
-// MapLibre implementation of the StoreMap contract (Week F) — the proof
+// MapLibre implementation of the StoreMap contract (Week F): the proof
 // that a maps-vendor swap is one adapter file. Tiles default to
 // OpenFreeMap (keyless, production-permitted); point
 // NEXT_PUBLIC_MAPLIBRE_STYLE_URL at Radar/Mapbox/MapTiler to change

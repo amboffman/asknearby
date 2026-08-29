@@ -1,7 +1,7 @@
 "use client";
 // Week D detail panel, restyled as a slide-over (ADR-004): open/closed
 // badge, today's hours emphasized, directions as the primary action.
-// The directions link stays a Google Maps universal URL — a link, not an
+// The directions link stays a Google Maps universal URL: a link, not an
 // SDK call, so it lives outside the vendor seam.
 import { type AttributeCategory, type StoreDetails } from "@/lib/types/store";
 

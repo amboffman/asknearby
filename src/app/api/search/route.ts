@@ -1,7 +1,7 @@
-// POST /api/search — the whole spine in one handler: sentence -> forced
+// POST /api/search is the whole spine in one handler: sentence -> forced
 // tool call -> SearchQuery -> geocode -> PostGIS -> rows.
 // Calls a paid model per request, so the cost guard (per-IP rate limit +
-// daily budget breaker) runs first — the AGENTS.md precondition for
+// daily budget breaker) runs first, the AGENTS.md precondition for
 // sharing the deployed URL.
 import { z } from "zod";
 
@@ -41,8 +41,8 @@ export async function POST(request: Request) {
         {
           error:
             guard.reason === "ip_rate_limited"
-              ? "Too many searches — try again in a minute."
-              : "Today's search budget is used up — please come back tomorrow.",
+              ? "Too many searches. Try again in a minute."
+              : "Today's search budget is used up. Please come back tomorrow.",
         },
         {
           status: 429,
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof TranslationFailedError) {
       return Response.json(
-        { error: "Could not understand that request — try rephrasing." },
+        { error: "Could not understand that request. Try rephrasing." },
         { status: 422 },
       );
     }

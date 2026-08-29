@@ -1,4 +1,4 @@
-// lib/ai — Vercel AI SDK orchestration (AGENTS.md boundary: server-only;
+// lib/ai: Vercel AI SDK orchestration (AGENTS.md boundary: server-only;
 // no SQL, no JSX, no maps-vendor calls). The model's ONLY job is one forced
 // tool call: natural language → typed SearchQuery (ADR-001).
 import { generateText, type LanguageModel, tool } from "ai";
@@ -42,7 +42,7 @@ function systemPrompt(catalog: readonly Attribute[]): string {
     "named, a radius only if stated, openNow only if they want stores open",
     "right now. Never invent filters, places, or radii. If they say",
     '"near me" or "nearby" without naming a place, leave the location',
-    "fields empty — the app supplies the user's location.",
+    "fields empty; the app supplies the user's location.",
     "",
     "Attribute catalog (slug: label):",
     catalogLines,
@@ -63,7 +63,7 @@ export async function translateQuery(
   return query;
 }
 
-/** translateQuery plus latency + token usage — what the eval harness scores. */
+/** translateQuery plus latency + token usage: what the eval harness scores. */
 export async function translateQueryDetailed(
   input: string,
   catalog: readonly Attribute[],
@@ -78,7 +78,7 @@ export async function translateQueryDetailed(
     tools: {
       [SEARCH_TOOL_NAME]: tool({
         description:
-          "Search the store database. Every field is optional — emit only what the user asked for.",
+          "Search the store database. Every field is optional. Emit only what the user asked for.",
         inputSchema: wireSchema,
       }),
     },
@@ -92,7 +92,7 @@ export async function translateQueryDetailed(
       `Model returned no ${SEARCH_TOOL_NAME} tool call (finish reason: ${result.finishReason}).`,
     );
   }
-  // Re-validate ourselves — the AI SDK marks schema-invalid tool calls
+  // Re-validate ourselves: the AI SDK marks schema-invalid tool calls
   // instead of throwing, and the catalog enum must be enforced here, not
   // trusted (ADR-001: silent bad filters are the failure mode to prevent).
   const parsed = wireSchema.safeParse(call.input);

@@ -14,7 +14,7 @@ export interface NearFilter {
   latitude: number;
   longitude: number;
   /**
-   * Omit to sort by distance WITHOUT filtering — used by no-results
+   * Omit to sort by distance WITHOUT filtering. Used by no-results
    * diagnosis to find the nearest match outside the requested radius.
    */
   radiusMeters?: number;
@@ -165,7 +165,7 @@ export async function findStores(
 }
 
 /**
- * COUNT(*) twin of findStores — exact matches for the same filters with
+ * COUNT(*) twin of findStores: exact matches for the same filters with
  * no LIMIT, so no-results diagnosis reports true chain-wide numbers even
  * when they exceed STORE_RESULT_LIMIT.
  */
@@ -308,7 +308,7 @@ export async function incrementUsageCounter(
   return rows[0]!.count;
 }
 
-/** The full attribute catalog — source of truth for AI enums and UI filters. */
+/** The full attribute catalog: source of truth for AI enums and UI filters. */
 export async function listAttributes(db: Db): Promise<Attribute[]> {
   return db
     .select({

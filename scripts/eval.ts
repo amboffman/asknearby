@@ -1,4 +1,4 @@
-// pnpm eval [provider...] — run the golden cases against each configured
+// pnpm eval [provider...]: run the golden cases against each configured
 // AI provider and write an accuracy/latency/cost matrix to eval-reports/.
 // COSTS MONEY (one model call per case per provider). Never wire into CI.
 import { config } from "dotenv";
@@ -76,7 +76,7 @@ async function runProvider(provider: AiProviderId): Promise<ProviderReport> {
     // Per-provider defaults; AI_MODEL would apply to both, which is wrong here.
     modelId: DEFAULT_MODEL_IDS[provider],
   });
-  console.log(`\n▶ ${provider} (${modelId}) — ${GOLDEN_CASES.length} cases`);
+  console.log(`\n▶ ${provider} (${modelId}): ${GOLDEN_CASES.length} cases`);
 
   const cases: CaseResult[] = [];
   for (const goldenCase of GOLDEN_CASES) {
@@ -145,7 +145,7 @@ async function runProvider(provider: AiProviderId): Promise<ProviderReport> {
 function matrixMarkdown(reports: ProviderReport[]): string {
   const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
   const lines = [
-    `# Model comparison — ${new Date().toISOString().slice(0, 10)}`,
+    `# Model comparison (${new Date().toISOString().slice(0, 10)})`,
     "",
     `${GOLDEN_CASES.length} golden NL → SearchQuery cases; deterministic field-by-field scoring.`,
     "",
@@ -171,7 +171,7 @@ async function main() {
   const requested = process.argv.slice(2) as AiProviderId[];
   const providers = (requested.length > 0 ? requested : AI_PROVIDERS).filter((p) => {
     if (!AI_PROVIDERS.includes(p)) {
-      console.error(`Unknown provider "${p}" — expected: ${AI_PROVIDERS.join(", ")}`);
+      console.error(`Unknown provider "${p}"; expected: ${AI_PROVIDERS.join(", ")}`);
       process.exit(1);
     }
     if (!process.env[KEY_ENV[p]]) {

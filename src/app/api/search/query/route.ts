@@ -1,4 +1,4 @@
-// POST /api/search/query — the deterministic half of the spine (ADR-004):
+// POST /api/search/query is the deterministic half of the spine (ADR-004):
 // an already-typed SearchQuery in, rows out, NO model call. The UI's
 // query-chip edits re-run through here, so removing a filter costs a
 // database query, not tokens. Geo must arrive as coordinates (the center
@@ -13,7 +13,7 @@ import { searchQuerySchema } from "@/lib/types/search-query";
 
 const bodySchema = z.object({ query: searchQuerySchema });
 
-/** Never resolves anything — this route must not pay for geocoding. */
+/** Never resolves anything: this route must not pay for geocoding. */
 const inertGeocoder = { geocode: async () => null };
 
 export async function POST(request: Request) {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   }
   if (parsedBody.data.query.geo.kind === "place") {
     return Response.json(
-      { error: "geo.kind 'place' is not accepted here — send the resolved coordinates instead." },
+      { error: "geo.kind 'place' is not accepted here. Send the resolved coordinates instead." },
       { status: 400 },
     );
   }
@@ -31,12 +31,12 @@ export async function POST(request: Request) {
   try {
     const db = getDb();
 
-    // No model call here, so only the per-IP limiter applies — the daily
+    // No model call here, so only the per-IP limiter applies: the daily
     // AI budget must not be drained by free re-runs.
     const guard = await checkIpRateLimit(db, clientIpFrom(request));
     if (!guard.allowed) {
       return Response.json(
-        { error: "Too many searches — try again in a minute." },
+        { error: "Too many searches. Try again in a minute." },
         { status: 429, headers: { "Retry-After": String(guard.retryAfterSeconds) } },
       );
     }

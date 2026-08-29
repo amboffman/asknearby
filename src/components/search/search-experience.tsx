@@ -1,7 +1,7 @@
 "use client";
 // The demo surface (ADR-004): a white-label Cedar & Main store finder.
 // Sentence in → translated SearchQuery rendered as removable chips → synced
-// list + map. Chip edits re-run through /api/search/query — deterministic,
+// list + map. Chip edits re-run through /api/search/query: deterministic,
 // no second model call. Sync contract: hover/focus a row highlights its
 // pin; hover a pin highlights its row; click either selects and opens the
 // detail slide-over.
@@ -18,7 +18,7 @@ import { NoResults } from "./no-results";
 import { QueryChips } from "./query-chips";
 import { StoreDetailPanel } from "./store-detail-panel";
 
-/** One-click example sentences — every attribute is real catalog data. */
+/** One-click example sentences (every attribute is real catalog data). */
 const EXAMPLES = [
   "a men's department and free parking near Columbus",
   "which stores are open right now in Chicago?",
@@ -168,10 +168,10 @@ export function SearchExperience({
     );
   }
 
-  /** Edited query → results, deterministically — no model call (ADR-004). */
+  /** Edited query → results, deterministically, no model call (ADR-004). */
   async function runQuery(query: SearchQuery) {
     // The query endpoint rejects raw place names (it must never pay the
-    // geocoder), so reuse the already-resolved center — or, when the first
+    // geocoder), so reuse the already-resolved center; or, when the first
     // geocode failed (unresolvedPlaceName), drop geo to match the original
     // unlocated search.
     const requery: SearchQuery =

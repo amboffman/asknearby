@@ -42,7 +42,7 @@ export interface SeedData {
 }
 
 /**
- * mulberry32 — tiny integer-arithmetic PRNG; same seed, same sequence, on
+ * mulberry32: tiny integer-arithmetic PRNG; same seed, same sequence, on
  * every platform. Good enough for plausible-looking demo data, which is all
  * it is used for.
  */
@@ -116,7 +116,7 @@ export function generateSeedData(seed: number = SEED): SeedData {
       for (const [slug, probability] of Object.entries(ATTRIBUTE_PROBABILITY)) {
         if (rng() < probability) attributeSlugs.push(slug);
       }
-      // Every store carries at least one department — an outfitter with no
+      // Every store carries at least one department; an outfitter with no
       // departments at all would make attribute demos look broken.
       if (!attributeSlugs.some((slug) => DEPARTMENT_SLUGS.includes(slug))) {
         attributeSlugs.unshift("womens-department");
@@ -125,7 +125,7 @@ export function generateSeedData(seed: number = SEED): SeedData {
 
       result.push({
         slug: `${kebab(metro.name)}-${kebab(hood.area)}`,
-        name: `${BRAND} — ${hood.area}`,
+        name: `${BRAND} (${hood.area})`,
         streetAddress: `${streetNumber} ${street}`,
         city: hood.city,
         state: hood.state,
@@ -156,7 +156,7 @@ export interface SeedSummary {
 
 /**
  * Destructive reseed: truncates all four tables and reinserts. This is a
- * demo dataset — reproducibility beats preservation.
+ * demo dataset, so reproducibility beats preservation.
  */
 export async function applySeed(db: Db, data: SeedData): Promise<SeedSummary> {
   return db.transaction(async (tx) => {

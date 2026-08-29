@@ -5,19 +5,19 @@
 > "a men's department and free parking near Columbus"
 
 That sentence becomes a typed query, a map of matching stores, and a synced
-list — with the AI's translation shown as **removable chips** you can edit
+list, with the AI's translation shown as **removable chips** you can edit
 without ever calling the model again.
 
 The demo ships white-labeled as **Cedar & Main Outfitters** (a fictional
 retail chain, "powered by AskNearby") because that is the product shape
 being demonstrated: an enterprise, white-label franchise store locator.
 
-_Demo GIF: `docs/demo.gif` — see [Recording the demo](#recording-the-demo).
+_Demo GIF: `docs/demo.gif`; see [Recording the demo](#recording-the-demo).
 Live URL lands with the Vercel deploy._
 
 ## The 30-second version
 
-1. Type a sentence (or click an example, or just browse — the map starts
+1. Type a sentence (or click an example, or just browse: the map starts
    with every store on it).
 2. One forced tool call turns it into a typed `SearchQuery`; the chips
    under the search box **are** that query. A JSON toggle shows the raw
@@ -25,11 +25,11 @@ Live URL lands with the Vercel deploy._
 3. Postgres + PostGIS produces the results; the UI renders them
    deterministically: numbered rows ↔ numbered pins, open/closed in each
    store's own timezone, distances in miles.
-4. Remove a chip and the search re-runs **without the model** — proof that
+4. Remove a chip and the search re-runs **without the model**: proof that
    only translation costs tokens (~$0.001/search); everything downstream is
    deterministic and free.
-5. The mono footer strip names the live stack — model, PostGIS, maps
-   vendor — because swapping any of them is the point:
+5. The mono footer strip names the live stack (model, PostGIS, maps
+   vendor) because swapping any of them is the point:
 
 | Swap                    | What it costs                                                                |
 | ----------------------- | ---------------------------------------------------------------------------- |
@@ -48,7 +48,7 @@ Live URL lands with the Vercel deploy._
                              SearchQuery         typed, zod-validated, closed
                                    │             attribute enum from the catalog
         chip edit ──▶ POST /api/search/query ──┐
-              (typed SearchQuery in — no model,│
+              (typed SearchQuery in: no model, │
                no geocoder: center is reused)  │
                                    ▼           ▼
                    lib/search ──▶ lib/db       pure mapping → SQL/PostGIS
@@ -74,11 +74,11 @@ props contract in `components/store-map`; env-reading composition lives in
 | ------------------------ | ----------------------------------------------------------------------- | ----------------------------- |
 | `POST /api/search`       | sentence → model translation → results                                  | per-IP limit + daily AI budget |
 | `POST /api/search/query` | edited `SearchQuery` → results (chip edits; zero tokens, no re-geocode) | per-IP limit                  |
-| `GET /api/stores/:id`    | attributes + weekly hours for the detail slide-over                     | —                             |
+| `GET /api/stores/:id`    | attributes + weekly hours for the detail slide-over                     | none                          |
 
 ## Model comparison (real run, 2026-07-04)
 
-20 golden NL → `SearchQuery` cases, deterministic field-by-field scoring —
+20 golden NL → `SearchQuery` cases, deterministic field-by-field scoring,
 no LLM judges (`pnpm eval`):
 
 | Provider  | Model                  | Accuracy on scored cases | Mean latency | p50     | Est. cost/query |
@@ -87,24 +87,24 @@ no LLM judges (`pnpm eval`):
 | google    | gemini-3-flash-preview | **13/13 (100%)**¹        | 1694 ms      | 1173 ms | $0.00081        |
 
 ¹ Gemini's free tier caps at 5 requests/min and 20/day; 7 cases hit the
-daily quota (counted as errors, not misses — re-run on a billed key for the
+daily quota (counted as errors, not misses; re-run on a billed key for the
 full 20). The headline: **both cheap-tier models translate this domain
-essentially perfectly, so the buying decision is latency and cost** — which
+essentially perfectly, so the buying decision is latency and cost**, which
 is exactly what the harness measures.
 
 ## Demo script (~3 minutes)
 
-1. Load the page: browse mode — all 75 stores pinned, nothing typed yet.
+1. Load the page: browse mode (all 75 stores pinned, nothing typed yet).
 2. Click the flagship example sentence → pins narrow, chips appear:
    `men's department` `free parking` `near Columbus · 25 km`.
-3. Toggle the JSON view — the chips and the raw tool call are the same
+3. Toggle the JSON view: the chips and the raw tool call are the same
    object; nothing user-visible is generated prose.
 4. Remove the `free parking` chip → instant re-run, and the footer's token
    math didn't move: chip edits never call the model.
 5. Click a numbered pin → slide-over: attributes, timezone-aware hours
    with open/closed status, directions link.
 6. Search "EV charging and a kids department near Denver" → the no-results
-   panel explains *why* ("7 stores match your filters — the nearest is
+   panel explains *why* ("7 stores match your filters; the nearest is
    ~920 mi away") and chips make the fix one click.
 7. The payoff: flip `NEXT_PUBLIC_MAPS_PROVIDER=maplibre`, redeploy → same
    app, different maps vendor. Flip `AI_PROVIDER=google` → different AI
@@ -146,7 +146,7 @@ renders at the top of this page.
 
 ## Honesty notes
 
-- **All store data is synthetic** — Cedar & Main Outfitters is fictional,
+- **All store data is synthetic**: Cedar & Main Outfitters is fictional,
   seeded deterministically (75 stores over real neighborhood coordinates,
   fictional addresses and 555-01xx phone numbers). Built this way on
   purpose: attribute coverage no Places API has ("men's department"), no
@@ -155,7 +155,7 @@ renders at the top of this page.
   skills instead.
 - **Decision history is part of the deliverable:** one-liners in
   [docs/DECISIONS.md](docs/DECISIONS.md), full arguments in
-  [docs/adr/](docs/adr/) — the query-translator architecture and data
+  [docs/adr/](docs/adr/): the query-translator architecture and data
   model (ADR-001), Vercel AI SDK vs raw SDK (ADR-002), the map contract
   and ports/adapters layout (ADR-003), and the UI-as-pitch pass with
   interactive chips (ADR-004). Build order:
