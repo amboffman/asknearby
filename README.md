@@ -5,15 +5,14 @@
 > "a men's department and free parking near Columbus"
 
 That sentence becomes a typed query, a map of matching stores, and a synced
-list, with the AI's translation shown as **removable chips** you can edit
+list, with the translation shown as **removable chips** you can edit
 without ever calling the model again.
+
+**Live demo:** [asknearby.vercel.app](https://asknearby.vercel.app)
 
 The demo ships white-labeled as **Cedar & Main Outfitters** (a fictional
 retail chain, "powered by AskNearby") because that is the product shape
 being demonstrated: an enterprise, white-label franchise store locator.
-
-_Demo GIF: `docs/demo.gif`; see [Recording the demo](#recording-the-demo).
-Live URL lands with the Vercel deploy._
 
 ## The 30-second version
 
@@ -62,11 +61,11 @@ Live URL lands with the Vercel deploy._
         StoreMap contract: google-store-map.tsx | maplibre-store-map.tsx
 ```
 
-Layer rules (documented in [AGENTS.md](AGENTS.md)): `lib/ai` never touches
-SQL or maps; `lib/db` is the only SQL home; `lib/search` is pure functions;
-vendors live behind ports in `lib/providers` and behind the `StoreMap`
-props contract in `components/store-map`; env-reading composition lives in
-`lib/config`.
+Layer rules, enforced on purpose: `lib/ai` never touches SQL or maps;
+`lib/db` is the only SQL home; `lib/search` is pure functions with no AI
+and no HTTP; vendors live behind ports in `lib/providers` and behind the
+`StoreMap` props contract in `components/store-map`; env-reading
+composition lives in `lib/config`.
 
 ### API surface
 
@@ -92,23 +91,25 @@ full 20). The headline: **both cheap-tier models translate this domain
 essentially perfectly, so the buying decision is latency and cost**, which
 is exactly what the harness measures.
 
-## Demo script (~3 minutes)
+## Try it (~3 minutes)
 
-1. Load the page: browse mode (all 75 stores pinned, nothing typed yet).
+1. Open [the live demo](https://asknearby.vercel.app): browse mode, all
+   75 stores pinned, nothing typed yet.
 2. Click the flagship example sentence → pins narrow, chips appear:
    `men's department` `free parking` `near Columbus · 25 km`.
 3. Toggle the JSON view: the chips and the raw tool call are the same
    object; nothing user-visible is generated prose.
-4. Remove the `free parking` chip → instant re-run, and the footer's token
-   math didn't move: chip edits never call the model.
+4. Remove the `free parking` chip → instant re-run: chip edits never call
+   the model.
 5. Click a numbered pin → slide-over: attributes, timezone-aware hours
    with open/closed status, directions link.
-6. Search "EV charging and a kids department near Denver" → the no-results
-   panel explains *why* ("7 stores match your filters; the nearest is
-   ~920 mi away") and chips make the fix one click.
-7. The payoff: flip `NEXT_PUBLIC_MAPS_PROVIDER=maplibre`, redeploy → same
-   app, different maps vendor. Flip `AI_PROVIDER=google` → different AI
-   vendor. `pnpm eval`'s matrix is the receipts.
+6. Search "EV charging and a kids department near Denver" → the map flies
+   to Denver and the no-results panel explains *why* ("7 stores match
+   your filters; the nearest is ~920 mi away"); chips make the fix one
+   click.
+7. The swap story: `NEXT_PUBLIC_MAPS_PROVIDER=maplibre` redeploys the
+   same app on a different maps vendor, and `AI_PROVIDER=google` swaps
+   the AI vendor. `pnpm eval`'s matrix above is the receipts.
 
 ## Getting started
 
@@ -132,31 +133,18 @@ gets List | Map tabs.
 
 ### Testing
 
-89 tests in two tiers: pure/unit tests (schema, scorers, seed generation,
-SQL shape via `.toSQL()`, mocked-model translation, open-status math)
-always run; the live-PostGIS integration suite auto-skips when
-`DATABASE_URL` is absent, so CI and offline runs stay green without ever
-touching a paid API.
-
-## Recording the demo
-
-Run through the demo script with a screen recorder (e.g. Windows Game Bar
-or ScreenToGif), export ~30 s at ≤1200 px wide as `docs/demo.gif`, and it
-renders at the top of this page.
+156 tests in two tiers: pure/unit tests (schema, scorers, seed generation,
+SQL shape via `.toSQL()`, mocked-model translation, open-status and
+map-viewport math) always run; the live-PostGIS integration suite
+auto-skips when `DATABASE_URL` is absent, so CI and offline runs stay
+green without ever touching a paid API.
 
 ## Honesty notes
 
-- **All store data is synthetic**: Cedar & Main Outfitters is fictional,
-  seeded deterministically (75 stores over real neighborhood coordinates,
-  fictional addresses and 555-01xx phone numbers). Built this way on
-  purpose: attribute coverage no Places API has ("men's department"), no
-  vendor ToS coupling, and reproducible evals. Real client work can't be
-  shown publicly; this repository demonstrates the same architecture
-  skills instead.
-- **Decision history is part of the deliverable:** one-liners in
-  [docs/DECISIONS.md](docs/DECISIONS.md), full arguments in
-  [docs/adr/](docs/adr/): the query-translator architecture and data
-  model (ADR-001), Vercel AI SDK vs raw SDK (ADR-002), the map contract
-  and ports/adapters layout (ADR-003), and the UI-as-pitch pass with
-  interactive chips (ADR-004). Build order:
-  [docs/ROADMAP.md](docs/ROADMAP.md).
+**All store data is synthetic**: Cedar & Main Outfitters is fictional,
+seeded deterministically (75 stores over real neighborhood coordinates,
+fictional addresses and 555-01xx phone numbers). Built this way on
+purpose: attribute coverage no Places API has ("men's department"), no
+vendor ToS coupling, and reproducible evals. Real client work can't be
+shown publicly; this repository demonstrates the same architecture skills
+instead.
