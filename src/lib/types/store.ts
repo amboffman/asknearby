@@ -1,5 +1,5 @@
 // Domain types that cross module boundaries (lib/db → lib/search → UI).
-// Only shapes that more than one layer consumes belong here (AGENTS.md).
+// Only shapes that more than one layer consumes belong here.
 
 export type AttributeCategory = "department" | "service" | "amenity" | "parking";
 

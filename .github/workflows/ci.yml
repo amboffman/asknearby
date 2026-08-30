@@ -1,4 +1,4 @@
-# CI per AGENTS.md: typecheck/lint/format/test/build; never anything that
+# CI policy: typecheck/lint/format/test/build; never anything that
 # calls a paid API. Integration tests skip themselves without DATABASE_URL,
 # and evals are deliberately not wired in.
 name: CI

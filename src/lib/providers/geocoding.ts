@@ -1,4 +1,4 @@
-// lib/providers holds ports + adapters for maps vendors (AGENTS.md): pure I/O
+// lib/providers holds ports + adapters for maps vendors: pure I/O
 // translation, no business logic. Week C adds the Google adapter behind
 // this same port; the vendor swap is the pitch (ADR-003, forthcoming).
 import { type Coordinates } from "@/lib/types/geo";

@@ -1,5 +1,5 @@
 // lib/search: pure functions from SearchQuery to typed lib/db calls
-// (AGENTS.md boundary: no AI, no HTTP; fully unit-testable). The only
+// (layer boundary: no AI, no HTTP; fully unit-testable). The only
 // async dependency is the GeocodingPort, injected by the caller.
 import {
   countStores,

@@ -1,4 +1,4 @@
-// lib/ai: Vercel AI SDK orchestration (AGENTS.md boundary: server-only;
+// lib/ai: Vercel AI SDK orchestration (layer boundary: server-only;
 // no SQL, no JSX, no maps-vendor calls). The model's ONLY job is one forced
 // tool call: natural language → typed SearchQuery (ADR-001).
 import { generateText, type LanguageModel, tool } from "ai";

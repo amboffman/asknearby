@@ -1,5 +1,5 @@
 // Google adapter for GeocodingPort: Geocoding API v4 (v3 /maps/api/geocode
-// is legacy as of 2026). Pure I/O translation per the AGENTS.md boundary.
+// is legacy as of 2026). Pure I/O translation per the providers boundary.
 import { type Coordinates } from "@/lib/types/geo";
 
 import { type GeocodingPort } from "./geocoding";
